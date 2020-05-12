@@ -127,3 +127,7 @@ func GetAddressByHexString(hexString string) (scommon.Address, error) {
 	}
 	return contractAddress, nil
 }
+
+func GetBlockHeight() (uint32, error) {
+	return sdk.GetCurrentBlockHeight()
+}
