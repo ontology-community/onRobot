@@ -238,8 +238,45 @@ func HeartbeatInterruptPong() bool {
 	return true
 }
 
-// todo
+// ResetPeerID 更换peerID，并尝试重连
+// 第一次连接成功，更换peerID后重连失败，beforeHandshake检查时会因为connect_controller已包含该remote而失败。
+// 单如果只是更换peerID，而不重连，纯心跳服务不会受任何影响。
 func ResetPeerID() bool {
+	var params struct {
+		Remote          string
+		InitBlockHeight uint64
+		DispatchTime    int
+	}
+	if err := getParamsFromJsonFile("ResetPeerID.json", &params); err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+
+	common.SetHeartbeatTestBlockHeight(params.InitBlockHeight)
+	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	setup(protocol)
+
+	if err := ns.Connect(params.Remote); err != nil {
+		_ = log4.Error("connecting to %s failed, err: %s", params.Remote, err)
+		return false
+	}
+	oldPeerID := ns.GetID()
+	log4.Debug("old peerID %s", oldPeerID.ToHexString())
+
+	if err := ns.ResetRandomPeerID(); err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+	newPeerID := ns.GetID()
+	log4.Debug("new peerID %s", newPeerID.ToHexString())
+	if err := ns.Connect(params.Remote); err != nil {
+		_ = log4.Error("connecting to %s failed, err: %s", params.Remote, err)
+		return true
+	}
+
+	dispatch(params.DispatchTime)
+
+	log4.Info("reset peerID end!")
 	return true
 }
 

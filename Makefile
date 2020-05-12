@@ -7,19 +7,19 @@ BUILD_NODE_PAR = -ldflags "-X main.Version=1.0.0"
 ARCH=$(shell uname -m)
 SRC_FILES = $(shell git ls-files | grep -e .go$ | grep -v _test.go)
 
-dht-tool: $(SRC_FILES)
-	$(GC)  $(BUILD_NODE_PAR) -o dht-tool main.go
+robot: $(SRC_FILES)
+	$(GC)  $(BUILD_NODE_PAR) -o robot main.go
 
-dht-tool-cross: dht-tool-windows dht-tool-linux dht-tool-darwin
+robot-cross: robot-windows robot-linux robot-darwin
 
-dht-tool-windows:
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GC) $(BUILD_NODE_PAR) -o dht-tool-windows.exe main.go
+robot-windows:
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GC) $(BUILD_NODE_PAR) -o robot-windows.exe main.go
 
-dht-tool-linux:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GC) $(BUILD_NODE_PAR) -o dht-tool-linux main.go
+robot-linux:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GC) $(BUILD_NODE_PAR) -o robot-linux main.go
 
-dht-tool-darwin:
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GC) $(BUILD_NODE_PAR) -o dht-tool-darwin main.go
+robot-darwin:
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GC) $(BUILD_NODE_PAR) -o robot-darwin main.go
 
 tools-cross: tools-windows tools-linux tools-darwin
 
@@ -28,7 +28,7 @@ format:
 
 clean:
 	rm -rf *.8 *.o *.out *.6 *exe
-	rm -rf dht-tool dht-tool-*
+	rm -rf robot robot-*
 
 remake:
-	make clean && make dht-tool
+	make clean && make robot

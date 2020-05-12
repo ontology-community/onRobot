@@ -135,6 +135,17 @@ func (this *NetServer) init(conf *config.P2PNodeConfig) error {
 	return nil
 }
 
+func (this *NetServer) ResetRandomPeerID() error {
+	if this.base == nil {
+		log4.Error("[p2p]origin peer info invalid")
+		return errors.New("[p2p]origin peer info invalid")
+	}
+
+	keyId := common.RandPeerKeyId()
+	this.base.Id = keyId.Id
+	return nil
+}
+
 //InitListen start listening on the config port
 func (this *NetServer) Start() error {
 	this.protocol.HandleSystemMessage(this, p2p.NetworkStart{})
