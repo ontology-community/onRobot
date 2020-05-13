@@ -20,10 +20,10 @@ package methods
 
 import (
 	log4 "github.com/alecthomas/log4go"
+	common2 "github.com/ontio/ontology/common"
 	"github.com/ontology-community/onRobot/common"
-	"github.com/ontology-community/onRobot/config"
+	"github.com/ontology-community/onRobot/p2pserver/message/msg_pack"
 	"github.com/ontology-community/onRobot/p2pserver/net/netserver"
-	"github.com/ontology-community/onRobot/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/p2pserver/protocols"
 	"github.com/ontology-community/onRobot/utils/timer"
 	"sync"
@@ -36,19 +36,6 @@ var (
 	tr     = timer.NewTimer(2)
 	nsList = make([]*netserver.NetServer, 0, MaxNetServerNumber)
 )
-
-func newNetServer(protocol p2p.Protocol) (ns *netserver.NetServer) {
-	var err error
-
-	if ns, err = netserver.NewNetServer(protocol, config.DefConfig.Net); err != nil {
-		log4.Crashf("[NewNetServer] crashed, err %s", err)
-	}
-	if err = ns.Start(); err != nil {
-		log4.Crashf("start netserver failed, err %s", err)
-	}
-	nsList = append(nsList, ns)
-	return
-}
 
 func reset() {
 	log4.Debug("[GC] end testing, stop server and clear instance...")
@@ -81,7 +68,7 @@ func Handshake() bool {
 
 	// 3. setup p2p.protocols
 	protocol := protocols.NewOnlyHeartbeatMsgHandler()
-	ns := newNetServer(protocol)
+	ns := GenerateNetServerWithProtocol(protocol)
 
 	// 4. connect and handshake
 	if err := ns.Connect(params.Remote); err != nil {
@@ -106,7 +93,7 @@ func HandshakeWrongMsg() bool {
 	}
 
 	protocol := protocols.NewOnlyHeartbeatMsgHandler()
-	ns := newNetServer(protocol)
+	ns := GenerateNetServerWithProtocol(protocol)
 
 	common.SetHandshakeWrongMsg(params.WrongMsg)
 	if err := ns.Connect(params.Remote); err != nil {
@@ -130,7 +117,7 @@ func HandshakeTimeout() bool {
 	}
 
 	protocol := protocols.NewOnlyHeartbeatMsgHandler()
-	ns := newNetServer(protocol)
+	ns := GenerateNetServerWithProtocol(protocol)
 
 	common.SetHandshakeTimeout(params.BlockTime)
 	if err := ns.Connect(params.Remote); err != nil {
@@ -166,7 +153,7 @@ func Heartbeat() bool {
 	}
 
 	protocol := protocols.NewOnlyHeartbeatMsgHandler()
-	ns := newNetServer(protocol)
+	ns := GenerateNetServerWithProtocol(protocol)
 
 	common.SetHeartbeatTestBlockHeight(params.InitBlockHeight)
 	if err := ns.Connect(params.Remote); err != nil {
@@ -198,7 +185,7 @@ func HeartbeatInterruptPing() bool {
 	common.SetHeartbeatTestInterruptPingLastTime(params.InterruptLastTime)
 
 	protocol := protocols.NewOnlyHeartbeatMsgHandler()
-	ns := newNetServer(protocol)
+	ns := GenerateNetServerWithProtocol(protocol)
 
 	if err := ns.Connect(params.Remote); err != nil {
 		_ = log4.Error("connecting to %s failed, err: %s", params.Remote, err)
@@ -229,7 +216,7 @@ func HeartbeatInterruptPong() bool {
 	common.SetHeartbeatTestInterruptPongLastTime(params.InterruptLastTime)
 
 	protocol := protocols.NewOnlyHeartbeatMsgHandler()
-	ns := newNetServer(protocol)
+	ns := GenerateNetServerWithProtocol(protocol)
 
 	if err := ns.Connect(params.Remote); err != nil {
 		_ = log4.Error("connecting to %s failed, err: %s", params.Remote, err)
@@ -258,7 +245,7 @@ func ResetPeerID() bool {
 
 	common.SetHeartbeatTestBlockHeight(params.InitBlockHeight)
 	protocol := protocols.NewOnlyHeartbeatMsgHandler()
-	ns := newNetServer(protocol)
+	ns := GenerateNetServerWithProtocol(protocol)
 
 	if err := ns.Connect(params.Remote); err != nil {
 		_ = log4.Error("connecting to %s failed, err: %s", params.Remote, err)
@@ -285,7 +272,7 @@ func ResetPeerID() bool {
 }
 
 // ddos 攻击, 构造多个peerID，连接并发送ping
-// 结果: 对于同一ip，节点最多接收16个链接，并且不影响块同步速度
+// 结果: 对于同一ip，节点最多接收16个链接，其他的链接会在客户端进行连接时失败，并且不影响块同步速度
 func DDos() bool {
 
 	// try to get blockheight
@@ -293,6 +280,7 @@ func DDos() bool {
 		Remote          string
 		InitBlockHeight uint64
 		DispatchTime    int
+		StartPort       int
 		ConnNumber      int
 	}
 	if err := getParamsFromJsonFile("DDOS.json", &params); err != nil {
@@ -312,21 +300,16 @@ func DDos() bool {
 	portlock := new(sync.Mutex)
 	common.SetHeartbeatTestBlockHeight(params.InitBlockHeight)
 	for i := 0; i < params.ConnNumber; i++ {
-		go func(port uint16) {
+		go func(port uint16, mtx *sync.Mutex) {
 			protocol := protocols.NewOnlyHeartbeatMsgHandler()
-
-			portlock.Lock()
-			config.DefConfig.Net.NodePort = port
-			ns := newNetServer(protocol)
-			portlock.Unlock()
-
+			ns := GenerateNetServerWithContinuePort(protocol, port, mtx)
 			peerID := ns.GetID()
 			if err := ns.Connect(params.Remote); err != nil {
 				_ = log4.Error("peer %s connecting to %s failed, err: %s", peerID.ToHexString(), params.Remote, err)
 			} else {
 				log4.Debug("peer %s connecting to %s success", peerID.ToHexString(), params.Remote)
 			}
-		}(uint16(8000 + i))
+		}(uint16(params.StartPort+i), portlock)
 	}
 
 	go func() {
@@ -350,10 +333,43 @@ func DDos() bool {
 	return true
 }
 
-// todo
 // 异常块高
-func InvalidBlockHeight() bool {
-	return true
+// 无法建立可以通过的blockHash，同步节点接收到后会丢掉异常blockhash
+func AskFakeBlocks() bool {
+	var params struct {
+		Remote          string
+		InitBlockHeight uint64
+		DispatchTime    int
+		EndHash         string
+	}
+	if err := getParamsFromJsonFile("AskFakeBlocks.json", &params); err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+
+	common.SetHeartbeatTestBlockHeight(params.InitBlockHeight)
+	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	ns := GenerateNetServerWithProtocol(protocol)
+	peer, err := ns.ConnectAndReturnPeer(params.Remote)
+	if err != nil {
+		_ = log4.Error("connecting to %s failed, err: %s", params.Remote, err)
+		return false
+	}
+
+	endHash, _ := common2.Uint256FromHexString(params.EndHash)
+	if err = peer.Send(msgpack.NewHeadersReq(endHash)); err != nil {
+		_ = log4.Error("send headersReq failed, err %s", err)
+		return false
+	}
+
+	// dispatch
+	if msg := protocol.Out(params.DispatchTime); msg != nil {
+		log4.Debug("invalid block endHash accepted by sync node, msg %v", msg)
+		return false
+	} else {
+		log4.Info("invalid block endHash rejected by sync node")
+		return true
+	}
 }
 
 // todo

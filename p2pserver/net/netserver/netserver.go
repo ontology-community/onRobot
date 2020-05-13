@@ -228,6 +228,21 @@ func (this *NetServer) Connect(addr string) error {
 	return this.connect(addr)
 }
 
+func (this *NetServer) ConnectAndReturnPeer(addr string) (*peer.Peer, error) {
+	peerInfo, conn, err := this.connCtrl.Connect(addr)
+	if err != nil {
+		return nil, err
+	}
+	remotePeer := createPeer(peerInfo, conn)
+
+	remotePeer.AttachChan(this.NetChan)
+	this.ReplacePeer(remotePeer)
+	go remotePeer.Link.Rx()
+
+	this.protocol.HandleSystemMessage(this, p2p.PeerConnected{Info: remotePeer.Info})
+	return remotePeer, nil
+}
+
 //Connect used to connect net address under sync or cons mode
 func (this *NetServer) connect(addr string) error {
 	peerInfo, conn, err := this.connCtrl.Connect(addr)

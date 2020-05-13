@@ -24,14 +24,23 @@ import (
 	msgTypes "github.com/ontology-community/onRobot/p2pserver/message/types"
 	"github.com/ontology-community/onRobot/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/p2pserver/protocols/heatbeat"
+	"time"
 )
+
+type RemoteMessage struct {
+	Context *p2p.Context
+	Message msgTypes.Message
+}
 
 type OnlyHeartbeatMsgHandler struct {
 	heatBeat *heatbeat.HeartBeat
+	recvCh   chan *RemoteMessage
 }
 
 func NewOnlyHeartbeatMsgHandler() *OnlyHeartbeatMsgHandler {
-	return &OnlyHeartbeatMsgHandler{}
+	return &OnlyHeartbeatMsgHandler{
+		recvCh: make(chan *RemoteMessage, 100),
+	}
 }
 
 func (self *OnlyHeartbeatMsgHandler) start(net p2p.P2P) {
@@ -57,12 +66,16 @@ func (self *OnlyHeartbeatMsgHandler) HandleSystemMessage(net p2p.P2P, msg p2p.Sy
 }
 
 func (self *OnlyHeartbeatMsgHandler) HandlePeerMessage(ctx *p2p.Context, msg msgTypes.Message) {
-	log4.Trace("[p2p]receive message, remote address %s, id %d", ctx.Sender().GetAddr(), ctx.Sender().GetID().ToUint64())
+	log4.Trace("[p2p]receive message, remote address %s, id %d, type %s", ctx.Sender().GetAddr(), ctx.Sender().GetID().ToUint64(), msg.CmdType())
 	switch m := msg.(type) {
 	case *msgTypes.Ping:
 		self.heatBeat.PingHandle(ctx, m)
 	case *msgTypes.Pong:
 		self.heatBeat.PongHandle(ctx, m)
+	case *msgTypes.BlkHeader:
+		self.BlockHeaderHandler(ctx, m)
+	case *msgTypes.Block:
+		self.BlockHandler(ctx, m)
 	case *msgTypes.NotFound:
 		log4.Debug("[p2p]receive notFound message, hash is %s", m.Hash.ToHexString())
 	default:
@@ -70,7 +83,32 @@ func (self *OnlyHeartbeatMsgHandler) HandlePeerMessage(ctx *p2p.Context, msg msg
 		if msgType == msgCommon.VERACK_TYPE || msgType == msgCommon.VERSION_TYPE {
 			log4.Info("receive message: %s from peer %s", msgType, ctx.Sender().GetAddr())
 		} else {
-			log4.Warn("unknown message handler for the msg: %s", msgType)
+			log4.Warn("unknown message handler for the recvCh: %s", msgType)
 		}
 	}
+}
+
+func (self *OnlyHeartbeatMsgHandler) BlockHeaderHandler(ctx *p2p.Context, msg *msgTypes.BlkHeader) {
+	self.recvCh <- &RemoteMessage{
+		Context: ctx,
+		Message: msg,
+	}
+}
+
+func (self *OnlyHeartbeatMsgHandler) BlockHandler(ctx *p2p.Context, msg *msgTypes.Block) {
+	self.recvCh <- &RemoteMessage{
+		Context: ctx,
+		Message: msg,
+	}
+}
+
+func (self *OnlyHeartbeatMsgHandler) Out(sec int) *RemoteMessage {
+	timer := time.NewTimer(time.Second * time.Duration(sec))
+	select {
+	case msg := <-self.recvCh:
+		return msg
+	case <-timer.C:
+		break
+	}
+	return nil
 }

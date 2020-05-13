@@ -20,10 +20,46 @@ package methods
 
 import (
 	"encoding/json"
+	log4 "github.com/alecthomas/log4go"
+	"github.com/ontology-community/onRobot/config"
+	"github.com/ontology-community/onRobot/p2pserver/net/netserver"
+	"github.com/ontology-community/onRobot/p2pserver/net/protocol"
 	"io/ioutil"
 	"os"
+	"sync"
 	"time"
 )
+
+func GenerateNetServerWithProtocol(protocol p2p.Protocol) (ns *netserver.NetServer) {
+	var err error
+
+	if ns, err = netserver.NewNetServer(protocol, config.DefConfig.Net); err != nil {
+		log4.Crashf("[NewNetServer] crashed, err %s", err)
+	}
+	if err = ns.Start(); err != nil {
+		log4.Crashf("start netserver failed, err %s", err)
+	}
+	nsList = append(nsList, ns)
+	return
+}
+
+func GenerateNetServerWithContinuePort(protocol p2p.Protocol, port uint16, mtx *sync.Mutex) (ns *netserver.NetServer) {
+	var err error
+
+	mtx.Lock()
+	config.DefConfig.Net.NodePort = port
+	if ns, err = netserver.NewNetServer(protocol, config.DefConfig.Net); err != nil {
+		mtx.Unlock()
+		log4.Crashf("[NewNetServer] crashed, err %s", err)
+		return nil
+	}
+	mtx.Unlock()
+	if err = ns.Start(); err != nil {
+		log4.Crashf("start netserver failed, err %s", err)
+	}
+	nsList = append(nsList, ns)
+	return
+}
 
 var paramsFileDir string
 
