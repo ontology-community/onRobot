@@ -59,8 +59,8 @@ func HandshakeClient(info *peer.PeerInfo, selfId *common.PeerKeyId, conn net.Con
 	}
 
 	// mark:
-	if tcm.HandshakeTimeout > 0 {
-		time.Sleep(tcm.HandshakeTimeout)
+	if tcm.HandshakeClientTimeout > 0 {
+		time.Sleep(tcm.HandshakeClientTimeout)
 	}
 
 	// 2. read version
@@ -130,12 +130,17 @@ func HandshakeClient(info *peer.PeerInfo, selfId *common.PeerKeyId, conn net.Con
 
 func HandshakeServer(info *peer.PeerInfo, selfId *common.PeerKeyId, conn net.Conn) (*peer.PeerInfo, error) {
 	ver := newVersion(info)
-	if err := conn.SetDeadline(time.Now().Add(tcm.HandshakeTimeout)); err != nil {
+	if err := conn.SetDeadline(time.Now().Add(HANDSHAKE_DURATION)); err != nil {
 		return nil, err
 	}
 	defer func() {
 		_ = conn.SetDeadline(time.Time{}) //reset back
 	}()
+
+	// mark:
+	if tcm.HandshakeServerTimeout > 0 {
+		time.Sleep(tcm.HandshakeServerTimeout)
+	}
 
 	// 1. read version
 	msg, _, err := types.ReadMessage(conn)

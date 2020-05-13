@@ -22,7 +22,7 @@ import (
 	log4 "github.com/alecthomas/log4go"
 	common2 "github.com/ontio/ontology/common"
 	"github.com/ontology-community/onRobot/common"
-	"github.com/ontology-community/onRobot/p2pserver/message/msg_pack"
+	"github.com/ontology-community/onRobot/p2pserver/message/types"
 	"github.com/ontology-community/onRobot/p2pserver/net/netserver"
 	"github.com/ontology-community/onRobot/p2pserver/protocols"
 	"github.com/ontology-community/onRobot/utils/timer"
@@ -107,11 +107,12 @@ func HandshakeWrongMsg() bool {
 
 func HandshakeTimeout() bool {
 	var params struct {
-		Remote    string
-		BlockTime int
-		Retry     int
+		Remote string
+		ClientBlockTime,
+		ServerBlockTime int
+		Retry int
 	}
-	if err := getParamsFromJsonFile("HandshakeTimeout.json", &params); err != nil {
+	if err := getParamsFromJsonFile("HandshakeClientTimeout.json", &params); err != nil {
 		_ = log4.Error("%s", err)
 		return false
 	}
@@ -119,7 +120,8 @@ func HandshakeTimeout() bool {
 	protocol := protocols.NewOnlyHeartbeatMsgHandler()
 	ns := GenerateNetServerWithProtocol(protocol)
 
-	common.SetHandshakeTimeout(params.BlockTime)
+	common.SetHandshakeClientTimeout(params.ClientBlockTime)
+	common.SetHandshakeServerTimeout(params.ServerBlockTime)
 	if err := ns.Connect(params.Remote); err != nil {
 		log4.Debug("connecting to %s failed, err: %s", params.Remote, err)
 	} else {
@@ -129,7 +131,7 @@ func HandshakeTimeout() bool {
 
 	for i := 0; i < params.Retry; i++ {
 		log4.Debug("connecting retry cnt %d", i)
-		common.SetHandshakeTimeout(0)
+		common.SetHandshakeClientTimeout(0)
 		if err := ns.Connect(params.Remote); err != nil {
 			log4.Debug("connecting to %s failed, err: %s", params.Remote, err)
 		} else {
@@ -337,10 +339,10 @@ func DDos() bool {
 // 无法建立可以通过的blockHash，同步节点接收到后会丢掉异常blockhash
 func AskFakeBlocks() bool {
 	var params struct {
-		Remote          string
-		InitBlockHeight uint64
-		DispatchTime    int
-		EndHash         string
+		Remote             string
+		InitBlockHeight    uint64
+		DispatchTime       int
+		StartHash, EndHash string
 	}
 	if err := getParamsFromJsonFile("AskFakeBlocks.json", &params); err != nil {
 		_ = log4.Error("%s", err)
@@ -356,8 +358,14 @@ func AskFakeBlocks() bool {
 		return false
 	}
 
+	startHash, _ := common2.Uint256FromHexString(params.StartHash)
 	endHash, _ := common2.Uint256FromHexString(params.EndHash)
-	if err = peer.Send(msgpack.NewHeadersReq(endHash)); err != nil {
+	req := &types.HeadersReq{
+		HashStart: startHash,
+		HashEnd:   endHash,
+		Len:       1,
+	}
+	if err = peer.Send(req); err != nil {
 		_ = log4.Error("send headersReq failed, err %s", err)
 		return false
 	}

@@ -38,7 +38,8 @@ const (
 var (
 	HandshakeLevel                   uint8
 	HandshakeWrongMsg                bool
-	HandshakeTimeout                 time.Duration
+	HandshakeClientTimeout           time.Duration
+	HandshakeServerTimeout           time.Duration
 	HeartbeatBlockHeight             uint64
 	HeartbeatInterruptAfterStartTime int64
 	HeartbeatInterruptPingLastTime   int64
@@ -46,19 +47,21 @@ var (
 )
 
 var (
-	DefHandshakeStopLevel               uint8         = HandshakeNormal
-	DefHandshakeWrongMsg                              = false
-	DefHandshakeTimeout                 time.Duration = time.Duration(0)
-	DefHeartbeatBlockHeight             uint64        = 9442
-	DefHeartbeatInterruptAfterStartTime int64         = 0
-	DefHeartbeatInterruptPingLastTime   int64         = 0
-	DefHeartbeatInterruptPongLastTime   int64         = 0
+	DefHandshakeStopLevel               uint8  = HandshakeNormal
+	DefHandshakeWrongMsg                       = false
+	DefHandshakeClientTimeout                  = time.Duration(0)
+	DefHandshakeServerTimeout                  = time.Duration(0)
+	DefHeartbeatBlockHeight             uint64 = 9442
+	DefHeartbeatInterruptAfterStartTime int64  = 0
+	DefHeartbeatInterruptPingLastTime   int64  = 0
+	DefHeartbeatInterruptPongLastTime   int64  = 0
 )
 
 func InitializeTestParams() {
 	HandshakeLevel = DefHandshakeStopLevel
 	HandshakeWrongMsg = DefHandshakeWrongMsg
-	HandshakeTimeout = DefHandshakeTimeout
+	HandshakeClientTimeout = DefHandshakeClientTimeout
+	HandshakeServerTimeout = DefHandshakeServerTimeout
 	HeartbeatBlockHeight = DefHeartbeatBlockHeight
 	HeartbeatInterruptAfterStartTime = DefHeartbeatInterruptAfterStartTime
 	HeartbeatInterruptPingLastTime = DefHeartbeatInterruptPingLastTime
@@ -83,8 +86,11 @@ func SetHandshakeWrongMsg(active bool) {
 }
 
 // handshake timeout
-func SetHandshakeTimeout(sec int) {
-	HandshakeTimeout = time.Duration(sec) * time.Second
+func SetHandshakeClientTimeout(sec int) {
+	HandshakeClientTimeout = time.Duration(sec) * time.Second
+}
+func SetHandshakeServerTimeout(sec int) {
+	HandshakeServerTimeout = time.Duration(sec) * time.Second
 }
 
 // heartbeat
