@@ -15,21 +15,21 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with The ontology.  If not, see <http://www.gnu.org/licenses/>.
  */
-package ontology_go_sdk
+package sdk
 
 import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
 	"github.com/ontio/ontology-crypto/keypair"
-	sdkcom "github.com/ontio/ontology-go-sdk/common"
-	"github.com/ontio/ontology-go-sdk/utils"
 	"github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/common/serialization"
 	"github.com/ontio/ontology/core/types"
 	cutils "github.com/ontio/ontology/core/utils"
 	"github.com/ontio/ontology/smartcontract/service/native/global_params"
 	"github.com/ontio/ontology/smartcontract/service/native/ont"
+	sdkcom "github.com/ontology-community/onRobot/sdk/common"
+	"github.com/ontology-community/onRobot/sdk/utils"
 )
 
 var (

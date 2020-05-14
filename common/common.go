@@ -27,12 +27,12 @@ import (
 
 	log4 "github.com/alecthomas/log4go"
 	"github.com/ontio/ontology-crypto/keypair"
-	gosdk "github.com/ontio/ontology-go-sdk"
 	scommon "github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/common/password"
 	"github.com/ontio/ontology/consensus/vbft"
 	"github.com/ontio/ontology/consensus/vbft/config"
 	"github.com/ontio/ontology/core/types"
+	gosdk "github.com/ontology-community/onRobot/sdk"
 )
 
 var sdk = gosdk.NewOntologySdk()

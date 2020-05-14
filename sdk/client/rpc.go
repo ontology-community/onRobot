@@ -17,7 +17,7 @@
  */
 
 //RPC client for ontology
-package sdk
+package client
 
 import (
 	"bytes"

@@ -15,17 +15,17 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with The ontology.  If not, see <http://www.gnu.org/licenses/>.
  */
-package ontology_go_sdk
+package sdk
 
 import (
 	"encoding/hex"
 	"fmt"
-	sdkcom "github.com/ontio/ontology-go-sdk/common"
 	utils2 "github.com/ontio/ontology/cmd/utils"
 	"github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/core/payload"
 	"github.com/ontio/ontology/core/types"
 	"github.com/ontio/ontology/core/utils"
+	sdkcom "github.com/ontology-community/onRobot/sdk/common"
 )
 
 type WasmVMContract struct {

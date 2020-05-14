@@ -15,16 +15,16 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with The ontology.  If not, see <http://www.gnu.org/licenses/>.
  */
-package ontology_go_sdk
+package sdk
 
 import (
 	"fmt"
-	sdkcom "github.com/ontio/ontology-go-sdk/common"
 	"github.com/ontio/ontology/cmd/utils"
 	"github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/core/payload"
 	"github.com/ontio/ontology/core/types"
 	httpcom "github.com/ontio/ontology/http/base/common"
+	sdkcom "github.com/ontology-community/onRobot/sdk/common"
 )
 
 type NeoVMContract struct {

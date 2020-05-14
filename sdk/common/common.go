@@ -17,7 +17,7 @@
  */
 //Some common define of ontology-go-sdk
 
-package sdk
+package common
 
 import (
 	"bytes"
