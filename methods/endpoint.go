@@ -25,9 +25,9 @@ import (
 
 func init() {
 	common.InitializeTestParams()
+
 	core.OntTool.RegGCFunc(reset)
 
-	core.OntTool.RegMethod("demo", Demo)
 	core.OntTool.RegMethod("handshake", Handshake)
 	core.OntTool.RegMethod("handshakeTimeout", HandshakeTimeout)
 	core.OntTool.RegMethod("handshakeWrongMsg", HandshakeWrongMsg)

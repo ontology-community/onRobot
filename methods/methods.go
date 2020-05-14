@@ -19,6 +19,7 @@
 package methods
 
 import (
+	"encoding/json"
 	log4 "github.com/alecthomas/log4go"
 	common2 "github.com/ontio/ontology/common"
 	"github.com/ontology-community/onRobot/common"
@@ -44,12 +45,6 @@ func reset() {
 		ns.Stop()
 	}
 	nsList = make([]*netserver.NetServer, 0, MaxNetServerNumber)
-}
-
-// methods
-func Demo() bool {
-	log4.Info("hello, dht demo")
-	return true
 }
 
 func Handshake() bool {
@@ -309,7 +304,7 @@ func DDos() bool {
 			if err := ns.Connect(params.Remote); err != nil {
 				_ = log4.Error("peer %s connecting to %s failed, err: %s", peerID.ToHexString(), params.Remote, err)
 			} else {
-				log4.Debug("peer %s connecting to %s success", peerID.ToHexString(), params.Remote)
+				log4.Debug("peer %s, index %d connecting to %s success", peerID.ToHexString(), int(port)-params.StartPort, params.Remote)
 			}
 		}(uint16(params.StartPort+i), portlock)
 	}
@@ -381,19 +376,31 @@ func AskFakeBlocks() bool {
 }
 
 // todo
-// 路由表攻击
-func AttackRoutable() bool {
-	return true
-}
-
-// todo
 // 非法交易攻击
 func AttackTxPool() bool {
+	//type TestJson struct {
+	//	localid int
+	//	Data string
+	//}
+	//
+	//tj := &TestJson{
+	//	localid: 100,
+	//	Data: "hello",
+	//}
+	var tj []byte = nil
+	bz, _ := json.Marshal(tj)
+	log4.Info("----------- %s", string(bz))
 	return true
 }
 
 // todo
 // 双花
 func DoubleSpend() bool {
+	return true
+}
+
+// todo
+// 路由表攻击
+func AttackRoutable() bool {
 	return true
 }
