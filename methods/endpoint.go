@@ -21,14 +21,18 @@ package methods
 import (
 	"github.com/ontology-community/onRobot/common"
 	"github.com/ontology-community/onRobot/core"
+	"math/rand"
+	"time"
 )
 
 func init() {
+	rand.Seed(time.Now().UnixNano())
 	common.InitializeTestParams()
 
 	core.OntTool.RegGCFunc(reset)
 
-	core.OntTool.RegMethod("handshake", Handshake)
+	core.OntTool.RegMethod("demo", Demo)
+	core.OntTool.RegMethod("connect", Connect)
 	core.OntTool.RegMethod("handshakeTimeout", HandshakeTimeout)
 	core.OntTool.RegMethod("handshakeWrongMsg", HandshakeWrongMsg)
 	core.OntTool.RegMethod("heartbeat", Heartbeat)
@@ -37,7 +41,6 @@ func init() {
 	core.OntTool.RegMethod("resetPeerID", ResetPeerID)
 	core.OntTool.RegMethod("ddos", DDos)
 	core.OntTool.RegMethod("askFakeBlocks", AskFakeBlocks)
-	core.OntTool.RegMethod("attackRoutable", AttackRoutable)
 	core.OntTool.RegMethod("attackTxPool", AttackTxPool)
 	core.OntTool.RegMethod("doubleSpend", DoubleSpend)
 }

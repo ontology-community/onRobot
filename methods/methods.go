@@ -19,19 +19,23 @@
 package methods
 
 import (
-	"encoding/json"
 	log4 "github.com/alecthomas/log4go"
-	common2 "github.com/ontio/ontology/common"
+	common2 "github.com/ontio/ontology/http/base/common"
 	"github.com/ontology-community/onRobot/common"
+	"github.com/ontology-community/onRobot/config"
 	"github.com/ontology-community/onRobot/p2pserver/message/types"
 	"github.com/ontology-community/onRobot/p2pserver/net/netserver"
 	"github.com/ontology-community/onRobot/p2pserver/protocols"
 	"github.com/ontology-community/onRobot/utils/timer"
+	"math/big"
 	"sync"
 	"time"
 )
 
-const MaxNetServerNumber = 128
+const (
+	WalletPath         = "./wallet.dat"
+	MaxNetServerNumber = 128
+)
 
 var (
 	tr     = timer.NewTimer(2)
@@ -47,13 +51,41 @@ func reset() {
 	nsList = make([]*netserver.NetServer, 0, MaxNetServerNumber)
 }
 
-func Handshake() bool {
+func Demo() bool {
+	// get block height
+	jsonrpcAddr := "http://172.168.3.158:20336"
+	height, err := common.GetBlockCurrentHeight(jsonrpcAddr)
+	if err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+	log4.Info("jsonrpcAddr %s current block height %d", jsonrpcAddr, height)
+
+	// recover kp
+	acc, err := common.RecoverAccount(WalletPath, config.DefConfig.WalletPwd)
+	if err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+	log4.Info("address %s", acc.Address.ToBase58())
+
+	// get balance
+	resp, err := common.GetBalance(jsonrpcAddr, acc.Address)
+	if err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+	log4.Info("ont %s, ong %s, block height %s", resp.Ont, resp.Ong, resp.Height)
+	return true
+}
+
+func Connect() bool {
 	// 1. get params from json file
 	var params struct {
 		Remote   string
 		TestCase uint8
 	}
-	if err := getParamsFromJsonFile("Handshake.json", &params); err != nil {
+	if err := GetParamsFromJsonFile("Connect.json", &params); err != nil {
 		_ = log4.Error("%s", err)
 		return false
 	}
@@ -82,7 +114,7 @@ func HandshakeWrongMsg() bool {
 		Remote   string
 		WrongMsg bool
 	}
-	if err := getParamsFromJsonFile("HandshakeWrongMsg.json", &params); err != nil {
+	if err := GetParamsFromJsonFile("HandshakeWrongMsg.json", &params); err != nil {
 		_ = log4.Error("%s", err)
 		return false
 	}
@@ -107,7 +139,7 @@ func HandshakeTimeout() bool {
 		ServerBlockTime int
 		Retry int
 	}
-	if err := getParamsFromJsonFile("HandshakeClientTimeout.json", &params); err != nil {
+	if err := GetParamsFromJsonFile("HandshakeClientTimeout.json", &params); err != nil {
 		_ = log4.Error("%s", err)
 		return false
 	}
@@ -144,7 +176,7 @@ func Heartbeat() bool {
 		InitBlockHeight uint64
 		DispatchTime    int
 	}
-	if err := getParamsFromJsonFile("Heartbeat.json", &params); err != nil {
+	if err := GetParamsFromJsonFile("Heartbeat.json", &params); err != nil {
 		_ = log4.Error("%s", err)
 		return false
 	}
@@ -158,7 +190,7 @@ func Heartbeat() bool {
 		return false
 	}
 
-	dispatch(params.DispatchTime)
+	Dispatch(params.DispatchTime)
 
 	log4.Info("heartbeat end!")
 	return true
@@ -172,7 +204,7 @@ func HeartbeatInterruptPing() bool {
 		InterruptLastTime       int64
 		DispatchTime            int
 	}
-	if err := getParamsFromJsonFile("HeartbeatInterruptPing.json", &params); err != nil {
+	if err := GetParamsFromJsonFile("HeartbeatInterruptPing.json", &params); err != nil {
 		_ = log4.Error("%s", err)
 		return false
 	}
@@ -189,7 +221,7 @@ func HeartbeatInterruptPing() bool {
 		return false
 	}
 
-	dispatch(params.DispatchTime)
+	Dispatch(params.DispatchTime)
 
 	log4.Info("heartbeat end!")
 	return true
@@ -203,7 +235,7 @@ func HeartbeatInterruptPong() bool {
 		InterruptLastTime       int64
 		DispatchTime            int
 	}
-	if err := getParamsFromJsonFile("HeartbeatInterruptPong.json", &params); err != nil {
+	if err := GetParamsFromJsonFile("HeartbeatInterruptPong.json", &params); err != nil {
 		_ = log4.Error("%s", err)
 		return false
 	}
@@ -220,7 +252,7 @@ func HeartbeatInterruptPong() bool {
 		return false
 	}
 
-	dispatch(params.DispatchTime)
+	Dispatch(params.DispatchTime)
 
 	log4.Info("heartbeat end!")
 	return true
@@ -235,7 +267,7 @@ func ResetPeerID() bool {
 		InitBlockHeight uint64
 		DispatchTime    int
 	}
-	if err := getParamsFromJsonFile("ResetPeerID.json", &params); err != nil {
+	if err := GetParamsFromJsonFile("ResetPeerID.json", &params); err != nil {
 		_ = log4.Error("%s", err)
 		return false
 	}
@@ -262,7 +294,7 @@ func ResetPeerID() bool {
 		return true
 	}
 
-	dispatch(params.DispatchTime)
+	Dispatch(params.DispatchTime)
 
 	log4.Info("reset peerID end!")
 	return true
@@ -270,23 +302,24 @@ func ResetPeerID() bool {
 
 // ddos 攻击, 构造多个peerID，连接并发送ping
 // 结果: 对于同一ip，节点最多接收16个链接，其他的链接会在客户端进行连接时失败，并且不影响块同步速度
+// 伪造ip的问题在于邻结点写入时从conn中获取ip，而不是从peerInfo中获取ip
 func DDos() bool {
 
 	// try to get blockheight
 	var params struct {
 		Remote          string
+		JsonRpc         string
 		InitBlockHeight uint64
 		DispatchTime    int
 		StartPort       int
 		ConnNumber      int
 	}
-	if err := getParamsFromJsonFile("DDOS.json", &params); err != nil {
+	if err := GetParamsFromJsonFile("DDOS.json", &params); err != nil {
 		_ = log4.Error("%s", err)
 		return false
 	}
 
-	common.Initialize()
-	height, err := common.GetBlockHeight()
+	height, err := common.GetBlockCurrentHeight(params.JsonRpc)
 	if err != nil {
 		_ = log4.Error("%s", err)
 		return false
@@ -314,17 +347,17 @@ func DDos() bool {
 		for {
 			select {
 			case <-ticker.C:
-				height2, err := common.GetBlockHeight()
+				height, err := common.GetBlockCurrentHeight(params.JsonRpc)
 				if err != nil {
 					log4.Debug("get block height failed,%s", err)
 				} else {
-					log4.Debug("block height during ddos %d", height2)
+					log4.Debug("block height during ddos %d", height)
 				}
 			}
 		}
 	}()
 
-	dispatch(params.DispatchTime)
+	Dispatch(params.DispatchTime)
 
 	log4.Info("ddos attack end!")
 	return true
@@ -339,7 +372,7 @@ func AskFakeBlocks() bool {
 		DispatchTime       int
 		StartHash, EndHash string
 	}
-	if err := getParamsFromJsonFile("AskFakeBlocks.json", &params); err != nil {
+	if err := GetParamsFromJsonFile("AskFakeBlocks.json", &params); err != nil {
 		_ = log4.Error("%s", err)
 		return false
 	}
@@ -353,8 +386,8 @@ func AskFakeBlocks() bool {
 		return false
 	}
 
-	startHash, _ := common2.Uint256FromHexString(params.StartHash)
-	endHash, _ := common2.Uint256FromHexString(params.EndHash)
+	startHash, _ := common.Uint256FromHexString(params.StartHash)
+	endHash, _ := common.Uint256FromHexString(params.EndHash)
 	req := &types.HeadersReq{
 		HashStart: startHash,
 		HashEnd:   endHash,
@@ -365,7 +398,7 @@ func AskFakeBlocks() bool {
 		return false
 	}
 
-	// dispatch
+	// Dispatch
 	if msg := protocol.Out(params.DispatchTime); msg != nil {
 		log4.Debug("invalid block endHash accepted by sync node, msg %v", msg)
 		return false
@@ -375,32 +408,197 @@ func AskFakeBlocks() bool {
 	}
 }
 
-// todo
 // 非法交易攻击
 func AttackTxPool() bool {
-	//type TestJson struct {
-	//	localid int
-	//	Data string
-	//}
-	//
-	//tj := &TestJson{
-	//	localid: 100,
-	//	Data: "hello",
-	//}
-	var tj []byte = nil
-	bz, _ := json.Marshal(tj)
-	log4.Info("----------- %s", string(bz))
+
+	// get params from json file
+	var params struct {
+		RemoteList   []string
+		JsonRpcList  []string
+		DispatchTime int
+		DestAccount  string
+		TxNum        int
+	}
+	if err := GetParamsFromJsonFile("AttackTxPool.json", &params); err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+	if len(params.RemoteList) != len(params.JsonRpcList) {
+		_ = log4.Error("remote transList length != json rpc transList length")
+		return false
+	}
+
+	// todo: delete after test transfer
+	params.RemoteList = params.RemoteList[0:1]
+	params.JsonRpcList = params.JsonRpcList[0:1]
+
+	// recover account and get balance before transfer
+	acc, err := common.RecoverAccount(WalletPath, config.DefConfig.WalletPwd)
+	if err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+
+	var (
+		balanceBeforeTransfer = make([]*common2.BalanceOfRsp, 0, len(params.RemoteList))
+		balanceAfterTransfer  = make([]*common2.BalanceOfRsp, 0, len(params.RemoteList))
+	)
+	if err := SettleBalanceListAndCompare(balanceBeforeTransfer, params.JsonRpcList, acc); err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+
+	// get and set block height
+	if _, err := GetAndSetBlockHeight(params.JsonRpcList[0], 1); err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+
+	// get peers
+	peers, err := GenerateMultiHeartbeatOnlyPeers(params.RemoteList)
+	if err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+	time.Sleep(3 * time.Second)
+
+	// send tx
+	initBalance := balanceBeforeTransfer[0].Ont
+	transList, err := GenerateMultiRandomOntTransfer(acc, params.DestAccount, initBalance, params.TxNum)
+	if err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+
+	// send tx
+	idx := 0
+	num := params.TxNum / len(peers)
+	for i := 0; i < num; i++ {
+		for _, pr := range peers {
+			if err := pr.Send(transList[idx]); err != nil {
+				_ = log4.Warn("%s", err)
+			}
+			idx++
+		}
+	}
+
+	// dispatch
+	Dispatch(params.DispatchTime)
+
+	// get balance after transfer
+	if err := SettleBalanceListAndCompare(balanceAfterTransfer, params.JsonRpcList, acc); err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+
+	// check balance
+	b1, _ := new(big.Float).SetString(balanceBeforeTransfer[0].Ont)
+	b2, _ := new(big.Float).SetString(balanceAfterTransfer[0].Ont)
+	if b1.Cmp(b2) != 0 {
+		_ = log4.Error("some invalid tx must be blocked")
+		return false
+	}
+
+	// check tx
+	// todo validate
+	for _, jsonrpc := range params.JsonRpcList {
+		for _, tx := range transList {
+			tx, err := common.GetTxByHash(jsonrpc, tx.Txn.Hash())
+			if tx != nil || err == nil {
+				_ = log4.Error("invalid tx persisted in txn pool")
+				return false
+			}
+		}
+	}
+
 	return true
 }
 
-// todo
 // 双花
 func DoubleSpend() bool {
-	return true
-}
 
-// todo
-// 路由表攻击
-func AttackRoutable() bool {
+	// get params from json file
+	var params struct {
+		RemoteList   []string
+		JsonRpcList  []string
+		DispatchTime int
+		DestAccount  string
+	}
+	if err := GetParamsFromJsonFile("DoubleSpend.json", &params); err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+	if len(params.RemoteList) != len(params.JsonRpcList) {
+		_ = log4.Error("remote list length != json rpc list length")
+		return false
+	}
+
+	// todo: delete after test transfer
+	params.RemoteList = params.RemoteList[0:1]
+	params.JsonRpcList = params.JsonRpcList[0:1]
+
+	// recover account and get balance before transfer
+	acc, err := common.RecoverAccount(WalletPath, config.DefConfig.WalletPwd)
+	if err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+
+	var (
+		balanceBeforeTransfer = make([]*common2.BalanceOfRsp, 0, len(params.RemoteList))
+		balanceAfterTransfer  = make([]*common2.BalanceOfRsp, 0, len(params.RemoteList))
+	)
+	if err := SettleBalanceListAndCompare(balanceBeforeTransfer, params.JsonRpcList, acc); err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+
+	// get and set block height
+	if _, err := GetAndSetBlockHeight(params.JsonRpcList[0], 1); err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+
+	// get peer
+	peers, err := GenerateMultiHeartbeatOnlyPeers(params.RemoteList)
+	if err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+
+	// settle transaction: todo modify amount
+	amount := uint64(1)
+	tran, err := GenerateTransferOntTx(acc, params.DestAccount, amount)
+	if err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+
+	// send tx
+	for _, peer := range peers {
+		if err := peer.Send(tran); err != nil {
+			_ = log4.Error("%s", err)
+			return false
+		}
+	}
+
+	// dispatch
+	Dispatch(params.DispatchTime)
+
+	// get balance after transfer
+	if err := SettleBalanceListAndCompare(balanceAfterTransfer, params.JsonRpcList, acc); err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+
+	// check balance
+	b1, _ := new(big.Float).SetString(balanceBeforeTransfer[0].Ont)
+	b2, _ := new(big.Float).SetString(balanceAfterTransfer[0].Ont)
+	alpha := new(big.Float).SetUint64(amount)
+	if new(big.Float).Sub(b1, alpha).Cmp(b2) != 0 {
+		_ = log4.Error("doubleSpend")
+		return false
+	}
+
 	return true
 }

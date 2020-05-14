@@ -19,115 +19,147 @@
 package common
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/ontology-community/onRobot/config"
-	"time"
-
-	log4 "github.com/alecthomas/log4go"
 	"github.com/ontio/ontology-crypto/keypair"
-	scommon "github.com/ontio/ontology/common"
-	"github.com/ontio/ontology/common/password"
-	"github.com/ontio/ontology/consensus/vbft"
-	"github.com/ontio/ontology/consensus/vbft/config"
+	"github.com/ontio/ontology-crypto/signature"
+	"github.com/ontio/ontology/account"
+	"github.com/ontio/ontology/common"
+	"github.com/ontio/ontology/core/payload"
 	"github.com/ontio/ontology/core/types"
-	gosdk "github.com/ontology-community/onRobot/sdk"
+	"github.com/ontio/ontology/core/utils"
+	common2 "github.com/ontio/ontology/http/base/common"
+	"github.com/ontio/ontology/smartcontract/service/native/ont"
+	"math/rand"
 )
 
-var sdk = gosdk.NewOntologySdk()
+var (
+	ONT_CONTRACT_VERSION = byte(0)
+	ONG_CONTRACT_VERSION = byte(0)
 
-func Initialize() {
-	sdk.NewRpcClient().SetAddress(config.DefConfig.Sdk.JsonRpcAddress)
+	ONT_CONTRACT_ADDRESS, _ = common.AddressFromHexString("0100000000000000000000000000000000000000")
+	ONG_CONTRACT_ADDRESS, _ = common.AddressFromHexString("0200000000000000000000000000000000000000")
+)
+
+// Uint256FromHexString
+func Uint256FromHexString(hex string) (common.Uint256, error) {
+	return common.Uint256FromHexString(hex)
 }
 
-func GetAccountByPassword(path string) (*gosdk.Account, bool) {
-	wallet, err := sdk.OpenWallet(path)
-	if err != nil {
-		log4.Logf(log4.ERROR, "open wallet error:", err)
-		return nil, false
-	}
-	pwd, err := password.GetPassword()
-	if err != nil {
-		log4.Logf(log4.ERROR, "getPassword error:", err)
-		return nil, false
-	}
-	user, err := wallet.GetDefaultAccount(pwd)
-	if err != nil {
-		log4.Logf(log4.ERROR, "getDefaultAccount error:", err)
-		return nil, false
-	}
-	return user, true
+// AddressFromBase58
+func AddressFromBase58(str string) (common.Address, error) {
+	return common.AddressFromBase58(str)
 }
 
-func InvokeNativeContractWithMultiSign(
-	gasPrice,
-	gasLimit uint64,
-	pubKeys []keypair.PublicKey,
-	singers []*gosdk.Account,
-	cversion byte,
-	contractAddress scommon.Address,
-	method string,
-	params []interface{},
-) (scommon.Uint256, error) {
-	tx, err := sdk.Native.NewNativeInvokeTransaction(gasPrice, gasLimit, cversion, contractAddress, method, params)
+// GetBlockHeight
+func GetBlockCurrentHeight(addr string) (uint64, error) {
+	data, ontErr := sendRpcRequest(addr, "getblockcount", []interface{}{})
+	if ontErr != nil {
+		return 0, ontErr.Error
+	}
+	num := uint64(0)
+	if err := json.Unmarshal(data, &num); err != nil {
+		return 0, fmt.Errorf("json.Unmarshal:%s error:%s", data, err)
+	}
+	return num, nil
+}
+
+// GetBalance
+func GetBalance(rpc string, addr common.Address) (*common2.BalanceOfRsp, error) {
+	data, ontErr := sendRpcRequest(rpc, "getbalance", []interface{}{addr.ToBase58()})
+	if ontErr != nil {
+		return nil, ontErr.Error
+	}
+	resp := &common2.BalanceOfRsp{}
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, fmt.Errorf("json.Unmarshal:%s error:%s", data, err)
+	}
+	return resp, nil
+}
+
+// GetTxByHash
+func GetTxByHash(addr string, hash common.Uint256) (*types.Transaction, error) {
+	data, ontErr := sendRpcRequest(addr, "getrawtransaction", []interface{}{hash.ToHexString()})
+	if ontErr != nil {
+		return nil, ontErr.Error
+	}
+	var tx = &types.Transaction{}
+	if err := json.Unmarshal(data, tx); err != nil {
+		return nil, fmt.Errorf("json.Unmarshal:%s error:%s", data, err)
+	}
+	return tx, nil
+}
+
+// RecoverAccount
+func RecoverAccount(walletPath, walletPwd string) (*account.Account, error) {
+	wallet, err := account.Open(walletPath)
 	if err != nil {
-		return scommon.UINT256_EMPTY, err
+		return nil, err
 	}
-	for _, singer := range singers {
-		err = sdk.MultiSignToTransaction(tx, uint16((5*len(pubKeys)+6)/7), pubKeys, singer)
-		if err != nil {
-			return scommon.UINT256_EMPTY, err
-		}
-	}
-	return sdk.SendTransaction(tx)
+	return wallet.GetDefaultAccount([]byte(walletPwd))
 }
 
-func WaitForBlock(sdk *gosdk.OntologySdk) bool {
-	_, err := sdk.WaitForGenerateBlock(30*time.Second, 1)
+// Sign
+func Sign(kp keypair.PrivateKey, hash []byte) (*signature.Signature, error) {
+	return signature.Sign(signature.SHA256withECDSA, kp, hash, nil)
+}
+
+// TransferOntTx generate transfer ont transaction
+func TransferOntTx(gasPrice, gasLimit uint64,
+	payer *account.Account,
+	to common.Address,
+	amount uint64) (*types.Transaction, error) {
+
+	mutableTransaction, err := newTransferTransaction(gasPrice, gasLimit, payer.Address, to, amount)
 	if err != nil {
-		log4.Logf(log4.ERROR, "WaitForGenerateBlock error:", err)
-		return false
+		return nil, err
 	}
-	return true
-}
-
-func ConcatKey(args ...[]byte) []byte {
-	temp := []byte{}
-	for _, arg := range args {
-		temp = append(temp, arg...)
-	}
-	return temp
-}
-
-func InitVbftBlock(block *types.Block) (*vbft.Block, error) {
-	if block == nil {
-		return nil, fmt.Errorf("nil block in initVbftBlock")
-	}
-
-	blkInfo := &vconfig.VbftBlockInfo{}
-	if err := json.Unmarshal(block.Header.ConsensusPayload, blkInfo); err != nil {
-		return nil, fmt.Errorf("unmarshal blockInfo: %s", err)
-	}
-
-	return &vbft.Block{
-		Block: block,
-		Info:  blkInfo,
-	}, nil
-}
-
-func GetAddressByHexString(hexString string) (scommon.Address, error) {
-	contractByte, err := hex.DecodeString(hexString)
+	mutableTransaction.Payer = payer.Address
+	err = signToTransaction(mutableTransaction, payer)
 	if err != nil {
-		return scommon.Address{}, fmt.Errorf("hex.DecodeString failed %v", err)
+		return nil, err
 	}
-	contractAddress, err := scommon.AddressParseFromBytes(scommon.ToArrayReverse(contractByte))
-	if err != nil {
-		return scommon.Address{}, fmt.Errorf("common.AddressParseFromBytes failed %v", err)
-	}
-	return contractAddress, nil
+	return mutableTransaction.IntoImmutable()
 }
 
-func GetBlockHeight() (uint32, error) {
-	return sdk.GetCurrentBlockHeight()
+func signToTransaction(tx *types.MutableTransaction, signer *account.Account) error {
+	txHash := tx.Hash()
+	sig, err := Sign(signer.PrivateKey, txHash.ToArray())
+	if err != nil {
+		return fmt.Errorf("sign error:%s", err)
+	}
+	sigData, err := signature.Serialize(sig)
+	if err != nil {
+		return fmt.Errorf("signature.Serialize error:%s", err)
+	}
+
+	tx.Sigs = append(tx.Sigs, types.Sig{
+		PubKeys: []keypair.PublicKey{signer.PubKey()},
+		M:       1,
+		SigData: [][]byte{sigData},
+	})
+	return nil
+}
+
+func newTransferTransaction(gasPrice, gasLimit uint64, from, to common.Address, amount uint64) (*types.MutableTransaction, error) {
+	states := []*ont.State{&ont.State{
+		From:  from,
+		To:    to,
+		Value: amount,
+	}}
+	params := []interface{}{states}
+	invokeCode, err := utils.BuildNativeInvokeCode(ONT_CONTRACT_ADDRESS, ONT_CONTRACT_VERSION, ont.TRANSFER_NAME, params)
+	if err != nil {
+		return nil, fmt.Errorf("BuildNativeInvokeCode error:%s", err)
+	}
+	invokePayload := &payload.InvokeCode{Code: invokeCode}
+	mutableTx := &types.MutableTransaction{
+		GasPrice: gasPrice,
+		GasLimit: gasLimit,
+		TxType:   types.InvokeNeo,
+		Nonce:    rand.Uint32(),
+		Payload:  invokePayload,
+		Sigs:     make([]types.Sig, 0, 0),
+	}
+	return mutableTx, nil
 }

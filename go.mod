@@ -6,6 +6,7 @@ require (
 	github.com/FactomProject/basen v0.0.0-20150613233007-fe3947df716e // indirect
 	github.com/alecthomas/log4go v0.0.0-20180109082532-d146e6b86faa
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
 	github.com/cmars/basen v0.0.0-20150613233007-fe3947df716e // indirect
 	github.com/gorilla/websocket v1.4.1
 	github.com/hashicorp/golang-lru v0.5.3

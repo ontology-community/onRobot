@@ -27,13 +27,17 @@ import (
 	"os"
 )
 
-var DefConfig = NewDHTConfig()
+var (
+	DefConfig     = NewDHTConfig()
+	ParamsFileDir string
+)
 
 type DHTConfig struct {
-	Seed []string
-	Sync []string
-	Net  *cmf.P2PNodeConfig
-	Sdk  *SDKConfig
+	Seed      []string
+	Sync      []string
+	Net       *cmf.P2PNodeConfig
+	Sdk       *SDKConfig
+	WalletPwd string
 }
 
 type SDKConfig struct {
@@ -90,4 +94,8 @@ func (this *DHTConfig) readFile(fileName string) ([]byte, error) {
 		return nil, fmt.Errorf("ioutil.ReadAll %s error %s", fileName, err)
 	}
 	return data, nil
+}
+
+func SetParamsDir(path string) {
+	ParamsFileDir = path
 }

@@ -64,6 +64,22 @@ func NewCustomNetServer(id *common.PeerKeyId, info *peer.PeerInfo, proto p2p.Pro
 	return n
 }
 
+func NewNetServerWithFakeIP(protocol p2p.Protocol, conf *config.P2PNodeConfig, ip string) (*NetServer, error) {
+	n := &NetServer{
+		NetChan:    make(chan *types.MsgPayload, common.CHAN_CAPABILITY),
+		base:       &peer.PeerInfo{},
+		Np:         NewNbrPeers(),
+		protocol:   protocol,
+		stopRecvCh: make(chan bool),
+	}
+
+	err := n.init(conf)
+	if err != nil {
+		return nil, err
+	}
+	return n, nil
+}
+
 //NetServer represent all the actions in net layer
 type NetServer struct {
 	base     *peer.PeerInfo
@@ -97,6 +113,42 @@ func (this *NetServer) processMessage(channel chan *types.MsgPayload,
 			return
 		}
 	}
+}
+
+//init initializes attribute of network server
+func (this *NetServer) initWithFakeIP(conf *config.P2PNodeConfig, ip string) error {
+	keyId := common.RandPeerKeyId()
+
+	httpInfo := conf.HttpInfoPort
+	nodePort := conf.NodePort
+	if nodePort == 0 {
+		log4.Error("[p2p]link port invalid")
+		return errors.New("[p2p]invalid link port")
+	}
+
+	this.base = peer.NewPeerInfo(keyId.Id, common.PROTOCOL_VERSION, common.SERVICE_NODE, true, httpInfo,
+		nodePort, 0, config.Version, ip)
+
+	option, err := connect_controller.ConnCtrlOptionFromConfig(conf)
+	if err != nil {
+		return err
+	}
+	this.connCtrl = connect_controller.NewConnectController(this.base, keyId, option)
+
+	syncPort := this.base.Port
+	if syncPort == 0 {
+		log4.Error("[p2p]sync port invalid")
+		return errors.New("[p2p]sync port invalid")
+	}
+	this.listener, err = connect_controller.NewListener(syncPort, config.DefConfig.P2PNode)
+	if err != nil {
+		log4.Error("[p2p]failed to create sync listener")
+		return errors.New("[p2p]failed to create sync listener")
+	}
+
+	log4.Info("[p2p]init peer ID to %s", this.base.Id.ToHexString())
+
+	return nil
 }
 
 //init initializes attribute of network server

@@ -19,7 +19,6 @@ package main
 
 import (
 	"flag"
-	methods2 "github.com/ontology-community/onRobot/methods"
 	"math/rand"
 	"strings"
 	"time"
@@ -42,14 +41,14 @@ func init() {
 	flag.StringVar(&Config, "cfg", "./config.json", "Config of ontology-tool")
 	flag.StringVar(&LogConfig, "lfg", "./log4go.xml", "Log config of ontology-tool")
 	flag.StringVar(&ParamsConfig, "pfg", "./params", "Test params")
-	flag.StringVar(&Methods, "t", "askFakeBlocks", "methods to run. use ',' to split methods")
+	flag.StringVar(&Methods, "t", "doubleSpend", "methods to run. use ',' to split methods")
 	flag.Parse()
 }
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	log4.LoadConfiguration(LogConfig)
-	methods2.SetParamsDir(ParamsConfig)
+	config.SetParamsDir(ParamsConfig)
 	defer time.Sleep(time.Second)
 
 	err := config.DefConfig.Init(Config)
