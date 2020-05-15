@@ -460,12 +460,14 @@ func AttackTxPool() bool {
 
 	// get params from json file
 	var params struct {
-		RemoteList   []string
-		JsonRpcList  []string
-		DispatchTime int
-		DestAccount  string
-		TxNum        int
+		RemoteList               []string
+		JsonRpcList              []string
+		DispatchTime             int
+		DestAccount              string
+		TxNum                    int
+		MinExpectedBlkHeightDiff uint64
 	}
+
 	if err := GetParamsFromJsonFile("AttackTxPool.json", &params); err != nil {
 		_ = log4.Error("%s", err)
 		return false
@@ -475,28 +477,29 @@ func AttackTxPool() bool {
 		return false
 	}
 
-	// todo: delete after test transfer
-	params.RemoteList = params.RemoteList[0:1]
-	params.JsonRpcList = params.JsonRpcList[0:1]
-
 	// recover account and get balance before transfer
-	acc, err := common.RecoverAccount(WalletPath, config.DefConfig.WalletPwd)
+	acc, err := common.RecoverAccount(TestWalletPath, config.DefConfig.WalletPwd)
 	if err != nil {
 		_ = log4.Error("%s", err)
 		return false
 	}
 
+	// get balance before test
 	balanceBeforeTransfer, err := GetBalanceAndCompare(params.JsonRpcList, acc)
 	if err != nil || len(balanceBeforeTransfer) == 0 {
 		_ = log4.Error("get balance failed")
 		return false
 	}
 
-	// get and set block height
-	if _, err := GetAndSetBlockHeight(params.JsonRpcList[0], 1); err != nil {
-		_ = log4.Error("%s", err)
+	// get block height before test
+	preBlkHeightList, err := GetBlockHeightList(params.JsonRpcList)
+	if err != nil || len(preBlkHeightList) != len(params.JsonRpcList) {
+		_ = log4.Error("get block height list failed")
 		return false
 	}
+
+	// get and set block height
+	common.SetHeartbeatTestBlockHeight(preBlkHeightList[0] + 1)
 
 	// get peers
 	peers, err := GenerateMultiHeartbeatOnlyPeers(params.RemoteList)
@@ -504,11 +507,16 @@ func AttackTxPool() bool {
 		_ = log4.Error("%s", err)
 		return false
 	}
-	time.Sleep(3 * time.Second)
+	time.Sleep(1 * time.Second)
 
 	// send tx
-	initBalance := balanceBeforeTransfer[0].Ont
-	transList, err := GenerateMultiRandomOntTransfer(acc, params.DestAccount, initBalance, params.TxNum)
+	data, err := strconv.Atoi(balanceBeforeTransfer[0].Ont)
+	if err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+	amount := uint64(data + 10000)
+	transList, err := GenerateMultiOntTransfer(acc, params.DestAccount, amount, params.TxNum)
 	if err != nil {
 		_ = log4.Error("%s", err)
 		return false
@@ -545,14 +553,36 @@ func AttackTxPool() bool {
 	}
 
 	// check tx
-	// todo validate
 	for _, jsonrpc := range params.JsonRpcList {
 		for _, tx := range transList {
-			tx, err := common.GetTxByHash(jsonrpc, tx.Txn.Hash())
+			hash := tx.Txn.Hash()
+			tx, err := common.GetTxByHash(jsonrpc, hash)
 			if tx != nil || err == nil {
 				_ = log4.Error("invalid tx persisted in txn pool")
 				return false
+			} else {
+				log4.Debug("node %s txnpool without tx %s", jsonrpc, hash.ToHexString())
 			}
+		}
+	}
+
+	// get current block height
+	curBlkHeightList, err := GetBlockHeightList(params.JsonRpcList)
+	if err != nil || len(curBlkHeightList) != len(params.JsonRpcList) {
+		_ = log4.Error("get block height list failed")
+		return false
+	}
+
+	// check block height
+	for i, node := range params.JsonRpcList {
+		pre := preBlkHeightList[i]
+		cur := curBlkHeightList[i]
+		dif := cur - pre
+		if dif < params.MinExpectedBlkHeightDiff {
+			_ = log4.Error("node %s, block height %d < %d", node, dif, params.MinExpectedBlkHeightDiff)
+			return false
+		} else {
+			log4.Info("current block height %d, pre block height %d, diff %d", cur, pre, dif)
 		}
 	}
 
@@ -613,14 +643,13 @@ func DoubleSpend() bool {
 		amount = amount - 1
 	}
 
-	tran, err := GenerateTransferOntTx(acc, params.DestAccount, uint64(amount))
-	if err != nil {
-		_ = log4.Error("%s", err)
-		return false
-	}
-
 	// send tx
 	for _, peer := range peers {
+		tran, err := GenerateTransferOntTx(acc, params.DestAccount, uint64(amount))
+		if err != nil {
+			_ = log4.Error("%s", err)
+			return false
+		}
 		if err := peer.Send(tran); err != nil {
 			_ = log4.Error("%s", err)
 			return false

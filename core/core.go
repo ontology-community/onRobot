@@ -20,9 +20,13 @@ package core
 
 import (
 	log4 "github.com/alecthomas/log4go"
+	"time"
 )
 
-var OntTool = NewOntologyTool()
+var (
+	OntTool   = NewOntologyTool()
+	startTime = time.Now().Unix()
+)
 
 type Method func() bool
 type GcFunc func()
@@ -108,13 +112,17 @@ func (this *OntologyTool) onFinish(methodsList []string) {
 
 	succCount := len(successList)
 	failedCount := len(failedList)
+	endTime := time.Now().Unix()
 
 	log4.Info("===============================================================")
-	log4.Info("Ontology Tool Finish Total:%v Success:%v Failed:%v Skip:%v",
+	log4.Info("Ontology Tool Finish Total:%v Success:%v Failed:%v Skip:%v, SpendTime:%d sec",
 		len(methodsList),
 		succCount,
 		failedCount,
-		len(methodsList)-succCount-failedCount)
+		len(methodsList)-succCount-failedCount,
+		endTime-startTime,
+	)
+
 	if succCount > 0 {
 		log4.Info("---------------------------------------------------------------")
 		log4.Info("Success list:")

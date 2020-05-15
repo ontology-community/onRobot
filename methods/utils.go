@@ -34,7 +34,6 @@ import (
 	"github.com/ontology-community/onRobot/p2pserver/peer"
 	"github.com/ontology-community/onRobot/p2pserver/protocols"
 	"io/ioutil"
-	"math/big"
 	"math/rand"
 	"os"
 	"sync"
@@ -163,6 +162,18 @@ func GetBalanceAndCompare(jsonrpcList []string, acc *account.Account) ([]*common
 	return balanceList, nil
 }
 
+func GetBlockHeightList(jsonrpcList []string) ([]uint64, error) {
+	list := make([]uint64, 0, len(jsonrpcList))
+	for _, jsonrpc := range jsonrpcList {
+		height, err := common.GetBlockCurrentHeight(jsonrpc)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, height)
+	}
+	return list, nil
+}
+
 // GenerateTransferOntTx
 func GenerateTransferOntTx(acc *account.Account, dst string, amount uint64) (*types.Trn, error) {
 	addr, err := common.AddressFromBase58(dst)
@@ -182,16 +193,11 @@ func GenerateTransferOntTx(acc *account.Account, dst string, amount uint64) (*ty
 	return tx, nil
 }
 
-// GenerateMultiRandomOntTransfer
-func GenerateMultiRandomOntTransfer(acc *account.Account, dst string, initBalanceStr string, cap int) ([]*types.Trn, error) {
-	list := make([]*types.Trn, 0, cap)
+// GenerateMultiOntTransfer
+func GenerateMultiOntTransfer(acc *account.Account, dst string, amount uint64, num int) ([]*types.Trn, error) {
+	list := make([]*types.Trn, 0, num)
 
-	outBoundBalance := int64(100000000)
-	initBalance, _ := new(big.Int).SetString(initBalanceStr, 10)
-	delta := rand.Int63n(outBoundBalance)
-	amount := initBalance.Uint64() + uint64(delta)
-
-	for i := 0; i < cap; i++ {
+	for i := 0; i < num; i++ {
 		tran, err := GenerateTransferOntTx(acc, dst, amount)
 		if err != nil {
 			return nil, err
