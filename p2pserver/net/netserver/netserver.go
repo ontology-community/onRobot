@@ -64,7 +64,7 @@ func NewCustomNetServer(id *common.PeerKeyId, info *peer.PeerInfo, proto p2p.Pro
 	return n
 }
 
-func NewNetServerWithFakeIP(protocol p2p.Protocol, conf *config.P2PNodeConfig, ip string) (*NetServer, error) {
+func NewNetServerWithKid(protocol p2p.Protocol, conf *config.P2PNodeConfig, kid *common.PeerKeyId) (*NetServer, error) {
 	n := &NetServer{
 		NetChan:    make(chan *types.MsgPayload, common.CHAN_CAPABILITY),
 		base:       &peer.PeerInfo{},
@@ -73,7 +73,7 @@ func NewNetServerWithFakeIP(protocol p2p.Protocol, conf *config.P2PNodeConfig, i
 		stopRecvCh: make(chan bool),
 	}
 
-	err := n.init(conf)
+	err := n.initWithKid(conf, kid)
 	if err != nil {
 		return nil, err
 	}
@@ -116,8 +116,7 @@ func (this *NetServer) processMessage(channel chan *types.MsgPayload,
 }
 
 //init initializes attribute of network server
-func (this *NetServer) initWithFakeIP(conf *config.P2PNodeConfig, ip string) error {
-	keyId := common.RandPeerKeyId()
+func (this *NetServer) initWithKid(conf *config.P2PNodeConfig, kid *common.PeerKeyId) error {
 
 	httpInfo := conf.HttpInfoPort
 	nodePort := conf.NodePort
@@ -126,14 +125,14 @@ func (this *NetServer) initWithFakeIP(conf *config.P2PNodeConfig, ip string) err
 		return errors.New("[p2p]invalid link port")
 	}
 
-	this.base = peer.NewPeerInfo(keyId.Id, common.PROTOCOL_VERSION, common.SERVICE_NODE, true, httpInfo,
-		nodePort, 0, config.Version, ip)
+	this.base = peer.NewPeerInfo(kid.Id, common.PROTOCOL_VERSION, common.SERVICE_NODE, true, httpInfo,
+		nodePort, 0, config.Version, "")
 
 	option, err := connect_controller.ConnCtrlOptionFromConfig(conf)
 	if err != nil {
 		return err
 	}
-	this.connCtrl = connect_controller.NewConnectController(this.base, keyId, option)
+	this.connCtrl = connect_controller.NewConnectController(this.base, kid, option)
 
 	syncPort := this.base.Port
 	if syncPort == 0 {

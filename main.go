@@ -41,7 +41,7 @@ func init() {
 	flag.StringVar(&Config, "cfg", "./config.json", "Config of ontology-tool")
 	flag.StringVar(&LogConfig, "lfg", "./log4go.xml", "Log config of ontology-tool")
 	flag.StringVar(&ParamsConfig, "pfg", "./params", "Test params")
-	flag.StringVar(&Methods, "t", "doubleSpend", "methods to run. use ',' to split methods")
+	flag.StringVar(&Methods, "t", "fakePeerID", "methods to run. use ',' to split methods")
 	flag.Parse()
 }
 

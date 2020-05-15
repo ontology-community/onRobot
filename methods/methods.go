@@ -23,6 +23,7 @@ import (
 	common2 "github.com/ontio/ontology/http/base/common"
 	"github.com/ontology-community/onRobot/common"
 	"github.com/ontology-community/onRobot/config"
+	common3 "github.com/ontology-community/onRobot/p2pserver/common"
 	"github.com/ontology-community/onRobot/p2pserver/message/types"
 	"github.com/ontology-community/onRobot/p2pserver/net/netserver"
 	"github.com/ontology-community/onRobot/p2pserver/protocols"
@@ -79,6 +80,20 @@ func Demo() bool {
 	return true
 }
 
+func FakePeerID() bool {
+	kid := common3.RandPeerKeyId()
+	list, err := GenerateFakePeerIDs(kid.Id, 127)
+	if err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+	for _, v := range list {
+		dis := distance(kid.Id, v)
+		log4.Info("init %d, peer %d, dis %d", kid.Id.ToUint64(), v.ToUint64(), dis)
+	}
+	return true
+}
+
 func Connect() bool {
 	// 1. get params from json file
 	var params struct {
@@ -98,11 +113,16 @@ func Connect() bool {
 	ns := GenerateNetServerWithProtocol(protocol)
 
 	// 4. connect and handshake
-	if err := ns.Connect(params.Remote); err != nil {
+	remotePeer, err := ns.ConnectAndReturnPeer(params.Remote)
+	if err != nil {
 		log4.Debug("connecting to %s failed, err: %s", params.Remote, err)
-	} else {
-		log4.Info("handshake end!")
+		return false
 	}
+
+	// 5. calculate distance
+	cpl := distance(ns.GetID(), remotePeer.GetID())
+
+	log4.Info("handshake end success, cpl is %d", cpl)
 
 	return true
 }

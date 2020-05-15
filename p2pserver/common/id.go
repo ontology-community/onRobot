@@ -67,6 +67,13 @@ func (self *PeerId) ToHexString() string {
 	return self.val.ToHexString()
 }
 
+func (self *PeerId) FromHexString(data string) error {
+	arr := []byte(data)
+	reverse := common.ToArrayReverse(arr)
+	source := common.NewZeroCopySource(reverse)
+	return self.Deserialization(source)
+}
+
 type PeerKeyId struct {
 	PublicKey keypair.PublicKey
 
@@ -165,6 +172,19 @@ func (this *PeerKeyId) Deserialization(source *common.ZeroCopySource) error {
 
 func peerIdFromPubkey(pubKey keypair.PublicKey) PeerId {
 	return PeerId{val: types.AddressFromPubKey(pubKey)}
+}
+
+// PeerKeyIDFromBytes
+func PeerKeyIDFromBytes(bz []byte) (*PeerKeyId, error) {
+	pubkey, err := keypair.DeserializePublicKey(bz)
+	if err != nil {
+		return nil, err
+	}
+	kid := peerIdFromPubkey(pubkey)
+	return &PeerKeyId{
+		PublicKey: pubkey,
+		Id:        kid,
+	}, nil
 }
 
 func RandPeerKeyId() *PeerKeyId {

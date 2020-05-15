@@ -23,9 +23,11 @@ import (
 	"fmt"
 	log4 "github.com/alecthomas/log4go"
 	"github.com/ontio/ontology/account"
+	common4 "github.com/ontio/ontology/common"
 	common2 "github.com/ontio/ontology/http/base/common"
 	"github.com/ontology-community/onRobot/common"
 	"github.com/ontology-community/onRobot/config"
+	common3 "github.com/ontology-community/onRobot/p2pserver/common"
 	"github.com/ontology-community/onRobot/p2pserver/message/types"
 	"github.com/ontology-community/onRobot/p2pserver/net/netserver"
 	"github.com/ontology-community/onRobot/p2pserver/net/protocol"
@@ -88,6 +90,21 @@ func GenerateNetServerWithFakeIP(protocol p2p.Protocol, port uint16, mtx *sync.M
 	}
 	nsList = append(nsList, ns)
 	return
+}
+
+// GenerateMultiHeartbeatOnlyPeers
+func GenerateMultiHeartbeatOnlyPeers(remoteList []string) ([]*peer.Peer, error) {
+	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	ns := GenerateNetServerWithProtocol(protocol)
+	peers := make([]*peer.Peer, 0, len(remoteList))
+	for _, remote := range remoteList {
+		pr, err := ns.ConnectAndReturnPeer(remote)
+		if err != nil {
+			return nil, err
+		}
+		peers = append(peers, pr)
+	}
+	return peers, nil
 }
 
 // GetAndSetBlockHeight get block height from other p2pserver and settle self height
@@ -157,21 +174,6 @@ func GenerateTransferOntTx(acc *account.Account, dst string, amount uint64) (*ty
 	return tx, nil
 }
 
-// GenerateMultiHeartbeatOnlyPeers
-func GenerateMultiHeartbeatOnlyPeers(remoteList []string) ([]*peer.Peer, error) {
-	protocol := protocols.NewOnlyHeartbeatMsgHandler()
-	ns := GenerateNetServerWithProtocol(protocol)
-	peers := make([]*peer.Peer, 0, len(remoteList))
-	for _, remote := range remoteList {
-		pr, err := ns.ConnectAndReturnPeer(remote)
-		if err != nil {
-			return nil, err
-		}
-		peers = append(peers, pr)
-	}
-	return peers, nil
-}
-
 // GenerateMultiRandomOntTransfer
 func GenerateMultiRandomOntTransfer(acc *account.Account, dst string, initBalanceStr string, cap int) ([]*types.Trn, error) {
 	list := make([]*types.Trn, 0, cap)
@@ -194,12 +196,65 @@ func GenerateMultiRandomOntTransfer(acc *account.Account, dst string, initBalanc
 	return list, nil
 }
 
+// GenerateFakePeerIDs 生成距离为0的peerID列表
+func GenerateFakePeerIDs(tgID common3.PeerId, num int) ([]common3.PeerId, error) {
+	if num >= 128 {
+		return nil, fmt.Errorf("num invalid")
+	}
+
+	list := make([]common3.PeerId, 0, num)
+	exists := make(map[uint64]struct{})
+
+	sink := new(common4.ZeroCopySink)
+	tgID.Serialization(sink)
+	exists[tgID.ToUint64()] = struct{}{}
+
+	var getValidXorByte = func(tg uint8) uint8 {
+		var xor uint8
+		for {
+			delta := uint8(rand.Int63n(255))
+			xor = delta ^ tg
+			if xor >= 128 && xor <= 255 {
+				break
+			}
+		}
+		return xor
+	}
+
+	sinkbz := sink.Bytes()
+	for {
+		bz := new([20]byte)
+		copy(bz[:], sinkbz[:])
+
+		xor := getValidXorByte(sinkbz[0])
+		bz[0] = xor
+
+		source := common4.NewZeroCopySource(bz[:])
+		peerID := common3.PeerId{}
+		if err := peerID.Deserialization(source); err != nil {
+			continue
+		}
+		if _, exist := exists[peerID.ToUint64()]; exist {
+			continue
+		} else {
+			exists[peerID.ToUint64()] = struct{}{}
+			list = append(list, peerID)
+			distance(peerID, tgID)
+		}
+		if len(list) >= num {
+			break
+		}
+	}
+
+	return list, nil
+}
+
+func distance(local, target common3.PeerId) int {
+	return common3.CommonPrefixLen(local, target)
+}
+
 // Dispatch
 func Dispatch(sec int) {
 	expire := time.Duration(sec) * time.Second
-	stop := make(chan struct{})
-	tr.Add(expire, func() {
-		stop <- struct{}{}
-	})
-	<-stop
+	time.Sleep(expire)
 }

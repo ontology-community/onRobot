@@ -32,6 +32,7 @@ func init() {
 	core.OntTool.RegGCFunc(reset)
 
 	core.OntTool.RegMethod("demo", Demo)
+	core.OntTool.RegMethod("fakePeerID", FakePeerID)
 	core.OntTool.RegMethod("connect", Connect)
 	core.OntTool.RegMethod("handshakeTimeout", HandshakeTimeout)
 	core.OntTool.RegMethod("handshakeWrongMsg", HandshakeWrongMsg)
