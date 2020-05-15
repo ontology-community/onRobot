@@ -1,4 +1,14 @@
 {
   "Remote": "172.168.3.158:20338",
-  "WrongMsg": false
+  "DispatchTime": 20,
+  "Version": 12,
+  "Services": 36,
+  "TimeStamp": 1222123,
+  "SyncPort": 20338,
+  "HttpInfoPort": 12,
+  "Nonce": 128,
+  "StartHeight":100,
+  "Relay":1,
+  "IsConsensus": false,
+  "SoftVersion":"v1.10.0"
 }

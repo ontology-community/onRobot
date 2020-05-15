@@ -55,17 +55,14 @@ func GenerateNetServerWithProtocol(protocol p2p.Protocol) (ns *netserver.NetServ
 }
 
 // GenerateNetServerWithContinuePort
-func GenerateNetServerWithContinuePort(protocol p2p.Protocol, port uint16, mtx *sync.Mutex) (ns *netserver.NetServer) {
+func GenerateNetServerWithContinuePort(protocol p2p.Protocol, port uint16) (ns *netserver.NetServer) {
 	var err error
 
-	mtx.Lock()
 	config.DefConfig.Net.NodePort = port
 	if ns, err = netserver.NewNetServer(protocol, config.DefConfig.Net); err != nil {
-		mtx.Unlock()
 		log4.Crashf("[NewNetServer] crashed, err %s", err)
 		return nil
 	}
-	mtx.Unlock()
 	if err = ns.Start(); err != nil {
 		log4.Crashf("start netserver failed, err %s", err)
 	}

@@ -1,8 +1,8 @@
 {
   "Remote": "172.168.3.158:20338",
-  "JsonRpc": "172.168.3.158:20336",
+  "JsonRpc": "http://172.168.3.158:20336",
   "InitBlockHeight": 8579,
-  "DispatchTime": 360,
+  "DispatchTime": 120,
   "StartPort": 8000,
-  "ConnNumber":64
+  "ConnNumber":128
 }

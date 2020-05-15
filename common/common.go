@@ -19,6 +19,7 @@
 package common
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/ontio/ontology-crypto/keypair"
@@ -83,11 +84,20 @@ func GetTxByHash(addr string, hash common.Uint256) (*types.Transaction, error) {
 	if ontErr != nil {
 		return nil, ontErr.Error
 	}
-	var tx = &types.Transaction{}
-	if err := json.Unmarshal(data, tx); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal:%s error:%s", data, err)
+	return GetTransactionFromBytes(data)
+}
+
+func GetTransactionFromBytes(data []byte) (*types.Transaction, error) {
+	hexStr := ""
+	err := json.Unmarshal(data, &hexStr)
+	if err != nil {
+		return nil, fmt.Errorf("json.Unmarshal error:%s", err)
 	}
-	return tx, nil
+	txData, err := hex.DecodeString(hexStr)
+	if err != nil {
+		return nil, fmt.Errorf("hex.DecodeString error:%s", err)
+	}
+	return types.TransactionFromRawBytes(txData)
 }
 
 // RecoverAccount

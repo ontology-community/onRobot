@@ -30,9 +30,13 @@ import (
 )
 
 var HANDSHAKE_DURATION = 10 * time.Second // handshake time can not exceed this duration, or will treat as attack.
-func HandshakeClient(info *peer.PeerInfo, selfId *common.PeerKeyId, conn net.Conn) (*peer.PeerInfo, error) {
-	version := newVersion(info)
+var TestVersion *types.Version
 
+func SetTestVersion(version *types.Version) {
+	TestVersion = version
+}
+
+func HandshakeClient(info *peer.PeerInfo, selfId *common.PeerKeyId, conn net.Conn) (*peer.PeerInfo, error) {
 	if err := conn.SetDeadline(time.Now().Add(HANDSHAKE_DURATION)); err != nil {
 		return nil, err
 	}
@@ -42,11 +46,12 @@ func HandshakeClient(info *peer.PeerInfo, selfId *common.PeerKeyId, conn net.Con
 
 	// 1. sendMsg version
 	if tcm.HandshakeWrongMsg {
-		err := sendMsg(conn, &types.Addr{})
+		err := sendMsg(conn, TestVersion)
 		if err != nil {
 			return nil, err
 		}
 	} else {
+		version := newVersion(info)
 		err := sendMsg(conn, version)
 		if err != nil {
 			return nil, err

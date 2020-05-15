@@ -23,12 +23,12 @@ import (
 	"github.com/ontology-community/onRobot/common"
 	"github.com/ontology-community/onRobot/config"
 	common3 "github.com/ontology-community/onRobot/p2pserver/common"
+	"github.com/ontology-community/onRobot/p2pserver/handshake"
 	"github.com/ontology-community/onRobot/p2pserver/message/types"
 	"github.com/ontology-community/onRobot/p2pserver/net/netserver"
 	"github.com/ontology-community/onRobot/p2pserver/protocols"
 	"math/big"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -64,7 +64,7 @@ func Demo() bool {
 	log4.Info("jsonrpcAddr %s current block height %d", jsonrpcAddr, height)
 
 	// recover kp
-	acc, err := common.RecoverAccount(WalletPath, config.DefConfig.WalletPwd)
+	acc, err := common.RecoverAccount(TestWalletPath, config.DefConfig.WalletPwd)
 	if err != nil {
 		_ = log4.Error("%s", err)
 		return false
@@ -158,23 +158,52 @@ func HandshakeWrongMsg() bool {
 
 	// 1. get params from json file
 	var params struct {
-		Remote   string
-		WrongMsg bool
+		Remote       string
+		DispatchTime int
+		Version      uint32
+		Services     uint64
+		TimeStamp    int64
+		SyncPort     uint16
+		HttpInfoPort uint16
+		Nonce        uint64
+		StartHeight  uint64
+		Relay        uint8
+		IsConsensus  bool
+		SoftVersion  string
 	}
 	if err := GetParamsFromJsonFile("HandshakeWrongMsg.json", &params); err != nil {
 		_ = log4.Error("%s", err)
 		return false
 	}
 
+	common.SetHandshakeWrongMsg(true)
+	version := &types.Version{
+		P: types.VersionPayload{
+			Version:      params.Version,
+			Services:     params.Services,
+			TimeStamp:    params.TimeStamp,
+			SyncPort:     params.SyncPort,
+			HttpInfoPort: params.HttpInfoPort,
+			Nonce:        params.Nonce,
+			StartHeight:  params.StartHeight,
+			Relay:        params.Relay,
+			IsConsensus:  params.IsConsensus,
+			SoftVersion:  params.SoftVersion,
+		},
+	}
+
+	handshake.SetTestVersion(version)
 	protocol := protocols.NewOnlyHeartbeatMsgHandler()
 	ns := GenerateNetServerWithProtocol(protocol)
 
-	common.SetHandshakeWrongMsg(params.WrongMsg)
-	if err := ns.Connect(params.Remote); err != nil {
-		log4.Debug("connecting to %s failed, err: %s", params.Remote, err)
-	} else {
-		log4.Info("handshakeWrongMsg end!")
+	if err := ns.Connect(params.Remote); err == nil {
+		_ = log4.Error("connecting to %s with invalid version should be failed!", params.Remote)
+		return false
 	}
+
+	Dispatch(params.DispatchTime)
+
+	log4.Info("handshakeWrongMsg end!")
 
 	return true
 }
@@ -186,7 +215,7 @@ func HandshakeTimeout() bool {
 		ServerBlockTime int
 		Retry int
 	}
-	if err := GetParamsFromJsonFile("HandshakeClientTimeout.json", &params); err != nil {
+	if err := GetParamsFromJsonFile("HandshakeTimeout.json", &params); err != nil {
 		_ = log4.Error("%s", err)
 		return false
 	}
@@ -374,35 +403,18 @@ func DDos() bool {
 		log4.Debug("block height before ddos %d", height)
 	}
 
-	portlock := new(sync.Mutex)
 	common.SetHeartbeatTestBlockHeight(params.InitBlockHeight)
 	for i := 0; i < params.ConnNumber; i++ {
-		go func(port uint16, mtx *sync.Mutex) {
-			protocol := protocols.NewOnlyHeartbeatMsgHandler()
-			ns := GenerateNetServerWithContinuePort(protocol, port, mtx)
-			peerID := ns.GetID()
-			if err := ns.Connect(params.Remote); err != nil {
-				_ = log4.Error("peer %s connecting to %s failed, err: %s", peerID.ToHexString(), params.Remote, err)
-			} else {
-				log4.Debug("peer %s, index %d connecting to %s success", peerID.ToHexString(), int(port)-params.StartPort, params.Remote)
-			}
-		}(uint16(params.StartPort+i), portlock)
-	}
-
-	go func() {
-		ticker := time.NewTicker(3 * time.Second)
-		for {
-			select {
-			case <-ticker.C:
-				height, err := common.GetBlockCurrentHeight(params.JsonRpc)
-				if err != nil {
-					log4.Debug("get block height failed,%s", err)
-				} else {
-					log4.Debug("block height during ddos %d", height)
-				}
-			}
+		port := uint16(params.StartPort + i)
+		protocol := protocols.NewOnlyHeartbeatMsgHandler()
+		ns := GenerateNetServerWithContinuePort(protocol, port)
+		peerID := ns.GetID()
+		if err := ns.Connect(params.Remote); err != nil {
+			_ = log4.Error("peer %s connecting to %s failed, err: %s", peerID.ToHexString(), params.Remote, err)
+		} else {
+			log4.Debug("peer %s, index %d connecting to %s success", peerID.ToHexString(), int(port)-params.StartPort, params.Remote)
 		}
-	}()
+	}
 
 	Dispatch(params.DispatchTime)
 
@@ -617,8 +629,6 @@ func DoubleSpend() bool {
 	if err != nil || len(balanceBeforeTransfer) == 0 {
 		_ = log4.Error("get balance failed")
 		return false
-	} else {
-		log4.Info("%s balance before transfer %s", acc.Address.ToBase58(), balanceBeforeTransfer[0].Ont)
 	}
 
 	// get and set block height
@@ -642,8 +652,10 @@ func DoubleSpend() bool {
 	if amount > 1 {
 		amount = amount - 1
 	}
+	log4.Info("%s balance %s, and will transfer %d ont", acc.Address.ToBase58(), balanceBeforeTransfer[0].Ont, amount)
 
 	// send tx
+	transList := make([]*types.Trn, 0, len(peers))
 	for _, peer := range peers {
 		tran, err := GenerateTransferOntTx(acc, params.DestAccount, uint64(amount))
 		if err != nil {
@@ -654,6 +666,7 @@ func DoubleSpend() bool {
 			_ = log4.Error("%s", err)
 			return false
 		}
+		transList = append(transList, tran)
 	}
 
 	// dispatch
@@ -666,6 +679,25 @@ func DoubleSpend() bool {
 		return false
 	} else {
 		log4.Info("%s balance after transfer %s", acc.Address.ToBase58(), balanceAfterTransfer[0].Ont)
+	}
+
+	// check tx
+	succeed := make(map[string]struct{})
+	for _, tx := range transList {
+		hash := tx.Txn.Hash()
+		for _, jsonrpc := range params.JsonRpcList {
+			_, err := common.GetTxByHash(jsonrpc, hash)
+			if err == nil {
+				succeed[hash.ToHexString()] = struct{}{}
+				log4.Debug("node %s, succeed tx %s", jsonrpc, hash.ToHexString())
+			} else {
+				_ = log4.Error("node %s, failed tx %s", jsonrpc, hash.ToHexString())
+			}
+		}
+	}
+	if len(succeed) > 0 {
+		_ = log4.Error("more than 1 tx succeed")
+		return false
 	}
 
 	// check balance
@@ -728,6 +760,7 @@ func singleTransfer(remote, jsonrpc, dest string, amount uint64, expire int) err
 	if err != nil {
 		return err
 	}
+	hash := tran.Txn.Hash()
 
 	protocol := protocols.NewOnlyHeartbeatMsgHandler()
 	ns := GenerateNetServerWithProtocol(protocol)
@@ -747,6 +780,14 @@ func singleTransfer(remote, jsonrpc, dest string, amount uint64, expire int) err
 	dstafTx, err := common.GetBalance(jsonrpc, destAddr)
 	if err != nil {
 		return err
+	}
+
+	tx, err := common.GetTxByHash(jsonrpc, hash)
+	if err == nil {
+		hash1 := tx.Hash()
+		log4.Debug("node %s, origin tx %s, succeed tx %s", jsonrpc, hash.ToHexString(), hash1.ToHexString())
+	} else {
+		_ = log4.Error("node %s, origin tx %s failed", jsonrpc, hash.ToHexString())
 	}
 
 	log4.Info("src address %s, dst address %s", acc.Address.ToBase58(), dest)
