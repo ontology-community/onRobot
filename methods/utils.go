@@ -92,6 +92,19 @@ func GenerateNetServerWithFakeIP(protocol p2p.Protocol, port uint16, mtx *sync.M
 	return
 }
 
+func GenerateNetServerWithFakeKid(protocol p2p.Protocol, kid *common3.PeerKeyId) (ns *netserver.NetServer) {
+	var err error
+	if ns, err = netserver.NewNetServerWithKid(protocol, config.DefConfig.Net, kid); err != nil {
+		log4.Crashf("[NewNetServer] crashed, err %s", err)
+		return nil
+	}
+	if err = ns.Start(); err != nil {
+		log4.Crashf("start netserver failed, err %s", err)
+	}
+	nsList = append(nsList, ns)
+	return
+}
+
 // GenerateMultiHeartbeatOnlyPeers
 func GenerateMultiHeartbeatOnlyPeers(remoteList []string) ([]*peer.Peer, error) {
 	protocol := protocols.NewOnlyHeartbeatMsgHandler()
@@ -104,6 +117,7 @@ func GenerateMultiHeartbeatOnlyPeers(remoteList []string) ([]*peer.Peer, error) 
 		}
 		peers = append(peers, pr)
 	}
+	nsList = append(nsList, ns)
 	return peers, nil
 }
 
@@ -129,30 +143,24 @@ func GetParamsFromJsonFile(fileName string, data interface{}) error {
 	return json.Unmarshal(bz, data)
 }
 
-// SettleBalanceListAndCompare get balance, settle in list and compare
-func SettleBalanceListAndCompare(balanceList []*common2.BalanceOfRsp, jsonrpcList []string, acc *account.Account) error {
-	if cap(balanceList) != len(jsonrpcList) {
-		return fmt.Errorf("cap(balanceList) != len(jsonrpcList)")
-	}
-
+// GetBalanceAndCompare get balance, settle in list and compare
+func GetBalanceAndCompare(jsonrpcList []string, acc *account.Account) ([]*common2.BalanceOfRsp, error) {
+	balanceList := make([]*common2.BalanceOfRsp, 0, len(jsonrpcList))
 	for _, jsonRpc := range jsonrpcList {
 		num, err := common.GetBalance(jsonRpc, acc.Address)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		balanceList = append(balanceList, num)
-
-		log4.Info("remote %s, %s balance before transfer %s",
-			jsonRpc, acc.Address.ToBase58(), num.Ont)
 	}
 
 	cmp := balanceList[0]
 	for _, balance := range balanceList[1:] {
 		if cmp.Ont != balance.Ont {
-			return fmt.Errorf("balance before transfer different")
+			return nil, fmt.Errorf("balance before transfer different")
 		}
 	}
-	return nil
+	return balanceList, nil
 }
 
 // GenerateTransferOntTx
@@ -199,7 +207,7 @@ func GenerateMultiRandomOntTransfer(acc *account.Account, dst string, initBalanc
 // GenerateZeroDistancePeerIDs 生成距离为0的peerID列表
 func GenerateZeroDistancePeerIDs(tgID common3.PeerId, num int) ([]common3.PeerId, error) {
 	if num >= 128 {
-		return nil, fmt.Errorf("num invalid")
+		return nil, fmt.Errorf("list length should < 128")
 	}
 
 	list := make([]common3.PeerId, 0, num)

@@ -76,6 +76,8 @@ func (self *OnlyHeartbeatMsgHandler) HandlePeerMessage(ctx *p2p.Context, msg msg
 		self.BlockHeaderHandler(ctx, m)
 	case *msgTypes.Block:
 		self.BlockHandler(ctx, m)
+	case *msgTypes.Trn:
+		self.TranHandler(ctx, m)
 	case *msgTypes.NotFound:
 		log4.Debug("[p2p]receive notFound message, hash is %s", m.Hash.ToHexString())
 	default:
@@ -100,6 +102,9 @@ func (self *OnlyHeartbeatMsgHandler) BlockHandler(ctx *p2p.Context, msg *msgType
 		Context: ctx,
 		Message: msg,
 	}
+}
+
+func (self *OnlyHeartbeatMsgHandler) TranHandler(ctx *p2p.Context, msg *msgTypes.Trn) {
 }
 
 func (self *OnlyHeartbeatMsgHandler) Out(sec int) *RemoteMessage {

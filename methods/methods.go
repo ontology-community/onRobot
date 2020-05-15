@@ -20,26 +20,25 @@ package methods
 
 import (
 	log4 "github.com/alecthomas/log4go"
-	common2 "github.com/ontio/ontology/http/base/common"
 	"github.com/ontology-community/onRobot/common"
 	"github.com/ontology-community/onRobot/config"
 	common3 "github.com/ontology-community/onRobot/p2pserver/common"
 	"github.com/ontology-community/onRobot/p2pserver/message/types"
 	"github.com/ontology-community/onRobot/p2pserver/net/netserver"
 	"github.com/ontology-community/onRobot/p2pserver/protocols"
-	"github.com/ontology-community/onRobot/utils/timer"
 	"math/big"
+	"strconv"
 	"sync"
 	"time"
 )
 
 const (
 	WalletPath         = "./wallet.dat"
+	TestWalletPath     = "testwallet.dat"
 	MaxNetServerNumber = 128
 )
 
 var (
-	tr     = timer.NewTimer(2)
 	nsList = make([]*netserver.NetServer, 0, MaxNetServerNumber)
 )
 
@@ -47,7 +46,9 @@ func reset() {
 	log4.Debug("[GC] end testing, stop server and clear instance...")
 	common.Reset()
 	for _, ns := range nsList {
-		ns.Stop()
+		if ns != nil {
+			ns.Stop()
+		}
 	}
 	nsList = make([]*netserver.NetServer, 0, MaxNetServerNumber)
 }
@@ -80,17 +81,43 @@ func Demo() bool {
 	return true
 }
 
-func FakePeerIDs() bool {
+// 伪造peerid&随机pubkey组合成kid，由此生成netserver
+// 连接后，服务端会在readmessage时校验pubkey，并通过pubkey重新生成kid，
+// 所以即便连接成功了，服务端dht记录的也是根据pubkey生成的peerid
+func FakePeerID() bool {
+	var params struct {
+		Remote       string
+		DispatchTime int
+	}
+	if err := GetParamsFromJsonFile("FakePeerID.json", &params); err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+
 	kid := common3.RandPeerKeyId()
-	list, err := GenerateZeroDistancePeerIDs(kid.Id, 127)
+	list, err := GenerateZeroDistancePeerIDs(kid.Id, 1)
 	if err != nil {
 		_ = log4.Error("%s", err)
 		return false
 	}
-	for _, v := range list {
-		dis := distance(kid.Id, v)
-		log4.Info("init %d, peer %d, dis %d", kid.Id.ToUint64(), v.ToUint64(), dis)
+	if len(list) != 1 {
+		_ = log4.Error("generate fake peer id failed")
+		return false
 	}
+	pkid := common3.FakePeerKeyId(list[0])
+
+	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	ns := GenerateNetServerWithFakeKid(protocol, pkid)
+	if err := ns.Connect(params.Remote); err != nil {
+		_ = log4.Error("%s", err)
+	} else {
+		pid := ns.GetID()
+		log4.Debug("%s connected", pid.ToHexString())
+	}
+
+	Dispatch(params.DispatchTime)
+	log4.Info("fake peer id success!")
+
 	return true
 }
 
@@ -459,12 +486,9 @@ func AttackTxPool() bool {
 		return false
 	}
 
-	var (
-		balanceBeforeTransfer = make([]*common2.BalanceOfRsp, 0, len(params.RemoteList))
-		balanceAfterTransfer  = make([]*common2.BalanceOfRsp, 0, len(params.RemoteList))
-	)
-	if err := SettleBalanceListAndCompare(balanceBeforeTransfer, params.JsonRpcList, acc); err != nil {
-		_ = log4.Error("%s", err)
+	balanceBeforeTransfer, err := GetBalanceAndCompare(params.JsonRpcList, acc)
+	if err != nil || len(balanceBeforeTransfer) == 0 {
+		_ = log4.Error("get balance failed")
 		return false
 	}
 
@@ -506,8 +530,9 @@ func AttackTxPool() bool {
 	Dispatch(params.DispatchTime)
 
 	// get balance after transfer
-	if err := SettleBalanceListAndCompare(balanceAfterTransfer, params.JsonRpcList, acc); err != nil {
-		_ = log4.Error("%s", err)
+	balanceAfterTransfer, err := GetBalanceAndCompare(params.JsonRpcList, acc)
+	if err != nil || len(balanceAfterTransfer) == 0 {
+		_ = log4.Error("get balance failed")
 		return false
 	}
 
@@ -536,8 +561,6 @@ func AttackTxPool() bool {
 
 // 双花
 func DoubleSpend() bool {
-
-	// get params from json file
 	var params struct {
 		RemoteList   []string
 		JsonRpcList  []string
@@ -553,24 +576,19 @@ func DoubleSpend() bool {
 		return false
 	}
 
-	// todo: delete after test transfer
-	params.RemoteList = params.RemoteList[0:1]
-	params.JsonRpcList = params.JsonRpcList[0:1]
-
 	// recover account and get balance before transfer
-	acc, err := common.RecoverAccount(WalletPath, config.DefConfig.WalletPwd)
+	acc, err := common.RecoverAccount(TestWalletPath, config.DefConfig.WalletPwd)
 	if err != nil {
 		_ = log4.Error("%s", err)
 		return false
 	}
 
-	var (
-		balanceBeforeTransfer = make([]*common2.BalanceOfRsp, 0, len(params.RemoteList))
-		balanceAfterTransfer  = make([]*common2.BalanceOfRsp, 0, len(params.RemoteList))
-	)
-	if err := SettleBalanceListAndCompare(balanceBeforeTransfer, params.JsonRpcList, acc); err != nil {
-		_ = log4.Error("%s", err)
+	balanceBeforeTransfer, err := GetBalanceAndCompare(params.JsonRpcList, acc)
+	if err != nil || len(balanceBeforeTransfer) == 0 {
+		_ = log4.Error("get balance failed")
 		return false
+	} else {
+		log4.Info("%s balance before transfer %s", acc.Address.ToBase58(), balanceBeforeTransfer[0].Ont)
 	}
 
 	// get and set block height
@@ -586,9 +604,16 @@ func DoubleSpend() bool {
 		return false
 	}
 
-	// settle transaction: todo modify amount
-	amount := uint64(1)
-	tran, err := GenerateTransferOntTx(acc, params.DestAccount, amount)
+	amount, err := strconv.Atoi(balanceBeforeTransfer[0].Ont)
+	if err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+	if amount > 1 {
+		amount = amount - 1
+	}
+
+	tran, err := GenerateTransferOntTx(acc, params.DestAccount, uint64(amount))
 	if err != nil {
 		_ = log4.Error("%s", err)
 		return false
@@ -606,19 +631,98 @@ func DoubleSpend() bool {
 	Dispatch(params.DispatchTime)
 
 	// get balance after transfer
-	if err := SettleBalanceListAndCompare(balanceAfterTransfer, params.JsonRpcList, acc); err != nil {
-		_ = log4.Error("%s", err)
+	balanceAfterTransfer, err := GetBalanceAndCompare(params.JsonRpcList, acc)
+	if err != nil || len(balanceAfterTransfer) == 0 {
+		_ = log4.Error("get balance failed")
 		return false
+	} else {
+		log4.Info("%s balance after transfer %s", acc.Address.ToBase58(), balanceAfterTransfer[0].Ont)
 	}
 
 	// check balance
 	b1, _ := new(big.Float).SetString(balanceBeforeTransfer[0].Ont)
 	b2, _ := new(big.Float).SetString(balanceAfterTransfer[0].Ont)
-	alpha := new(big.Float).SetUint64(amount)
+	alpha := new(big.Float).SetUint64(uint64(amount))
 	if new(big.Float).Sub(b1, alpha).Cmp(b2) != 0 {
 		_ = log4.Error("doubleSpend")
 		return false
 	}
 
 	return true
+}
+
+func TransferOnt() bool {
+	var params struct {
+		Remote       string
+		JsonRpc      string
+		DispatchTime int
+		DestAccount  string
+		Amount       uint64
+	}
+
+	if err := GetParamsFromJsonFile("Transfer.json", &params); err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+	if params.Amount < 2 {
+		_ = log4.Error("amount should >= 2")
+		return false
+	}
+	err := singleTransfer(params.Remote, params.JsonRpc, params.DestAccount, params.Amount, params.DispatchTime)
+	if err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+
+	return true
+}
+
+func singleTransfer(remote, jsonrpc, dest string, amount uint64, expire int) error {
+	acc, err := common.RecoverAccount(WalletPath, config.DefConfig.WalletPwd)
+	if err != nil {
+		return err
+	}
+	destAddr, err := common.AddressFromBase58(dest)
+	if err != nil {
+		return err
+	}
+	srcbfTx, err := common.GetBalance(jsonrpc, acc.Address)
+	if err != nil {
+		return err
+	}
+	dstbfTx, err := common.GetBalance(jsonrpc, destAddr)
+	if err != nil {
+		return err
+	}
+
+	tran, err := GenerateTransferOntTx(acc, dest, amount)
+	if err != nil {
+		return err
+	}
+
+	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	ns := GenerateNetServerWithProtocol(protocol)
+	peer, err := ns.ConnectAndReturnPeer(remote)
+	if err != nil {
+		return err
+	}
+	if err := peer.Send(tran); err != nil {
+		return err
+	}
+
+	Dispatch(expire)
+	srcafTx, err := common.GetBalance(jsonrpc, acc.Address)
+	if err != nil {
+		return err
+	}
+	dstafTx, err := common.GetBalance(jsonrpc, destAddr)
+	if err != nil {
+		return err
+	}
+
+	log4.Info("src address %s, dst address %s", acc.Address.ToBase58(), dest)
+	log4.Info("before transfer, src %s, dst %s, ", srcbfTx.Ont, dstbfTx.Ont)
+	log4.Info("after transfer, src %s, dst %s, ", srcafTx.Ont, dstafTx.Ont)
+
+	return nil
 }

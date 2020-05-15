@@ -35,7 +35,7 @@ import (
 	"github.com/ontio/ontology/core/types"
 )
 
-var Difficulty = 18 //bit
+var Difficulty = 4 //bit
 
 type PeerId struct {
 	val common.Address
@@ -174,19 +174,6 @@ func peerIdFromPubkey(pubKey keypair.PublicKey) PeerId {
 	return PeerId{val: types.AddressFromPubKey(pubKey)}
 }
 
-// PeerKeyIDFromBytes
-func PeerKeyIDFromBytes(bz []byte) (*PeerKeyId, error) {
-	pubkey, err := keypair.DeserializePublicKey(bz)
-	if err != nil {
-		return nil, err
-	}
-	kid := peerIdFromPubkey(pubkey)
-	return &PeerKeyId{
-		PublicKey: pubkey,
-		Id:        kid,
-	}, nil
-}
-
 func RandPeerKeyId() *PeerKeyId {
 	var acc *account.Account
 	for {
@@ -196,6 +183,20 @@ func RandPeerKeyId() *PeerKeyId {
 		}
 	}
 	kid := peerIdFromPubkey(acc.PublicKey)
+	return &PeerKeyId{
+		PublicKey: acc.PublicKey,
+		Id:        kid,
+	}
+}
+
+func FakePeerKeyId(kid PeerId) *PeerKeyId {
+	var acc *account.Account
+	for {
+		acc = account.NewAccount("")
+		if validatePublicKey(acc.PublicKey) {
+			break
+		}
+	}
 	return &PeerKeyId{
 		PublicKey: acc.PublicKey,
 		Id:        kid,

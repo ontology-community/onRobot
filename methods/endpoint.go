@@ -32,7 +32,7 @@ func init() {
 	core.OntTool.RegGCFunc(reset)
 
 	core.OntTool.RegMethod("demo", Demo)
-	core.OntTool.RegMethod("fakePeerIDs", FakePeerIDs)
+	core.OntTool.RegMethod("fakePeerID", FakePeerID)
 	core.OntTool.RegMethod("connect", Connect)
 	core.OntTool.RegMethod("handshakeTimeout", HandshakeTimeout)
 	core.OntTool.RegMethod("handshakeWrongMsg", HandshakeWrongMsg)
@@ -44,4 +44,5 @@ func init() {
 	core.OntTool.RegMethod("askFakeBlocks", AskFakeBlocks)
 	core.OntTool.RegMethod("attackTxPool", AttackTxPool)
 	core.OntTool.RegMethod("doubleSpend", DoubleSpend)
+	core.OntTool.RegMethod("transferOnt", TransferOnt)
 }

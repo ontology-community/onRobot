@@ -53,7 +53,18 @@ func (self *HeartBeat) Start() {
 }
 
 func (self *HeartBeat) Stop() {
-	close(self.quit)
+	if !self.IsClosed() {
+		close(self.quit)
+	}
+}
+
+func (self *HeartBeat) IsClosed() bool {
+	select {
+	case <-self.quit:
+		return true
+	default:
+	}
+	return false
 }
 
 func (this *HeartBeat) heartBeatService() {

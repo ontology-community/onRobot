@@ -328,8 +328,19 @@ func (this *NetServer) Stop() {
 	if this.listener != nil {
 		_ = this.listener.Close()
 	}
-	close(this.stopRecvCh)
+	if !this.IsClosed() {
+		close(this.stopRecvCh)
+	}
 	this.protocol.HandleSystemMessage(this, p2p.NetworkStop{})
+}
+
+func (this *NetServer) IsClosed() bool {
+	select {
+	case <-this.stopRecvCh:
+		return true
+	default:
+	}
+	return false
 }
 
 func (this *NetServer) handleClientConnection(conn net.Conn) error {
