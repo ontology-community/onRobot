@@ -20,6 +20,7 @@ package methods
 
 import (
 	log4 "github.com/alecthomas/log4go"
+	common2 "github.com/ontio/ontology/common"
 	"github.com/ontology-community/onRobot/common"
 	"github.com/ontology-community/onRobot/config"
 	common3 "github.com/ontology-community/onRobot/p2pserver/common"
@@ -29,6 +30,7 @@ import (
 	"github.com/ontology-community/onRobot/p2pserver/protocols"
 	"math/big"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -649,12 +651,9 @@ func DoubleSpend() bool {
 		_ = log4.Error("%s", err)
 		return false
 	}
-	if amount > 1 {
-		amount = amount - 1
-	}
-	log4.Info("%s balance %s, and will transfer %d ont", acc.Address.ToBase58(), balanceBeforeTransfer[0].Ont, amount)
+	log4.Info("=====%s balance %s, and will transfer %d ont", acc.Address.ToBase58(), balanceBeforeTransfer[0].Ont, amount)
 
-	// send tx
+	// send preTx
 	transList := make([]*types.Trn, 0, len(peers))
 	for _, peer := range peers {
 		tran, err := GenerateTransferOntTx(acc, params.DestAccount, uint64(amount))
@@ -672,41 +671,39 @@ func DoubleSpend() bool {
 	// dispatch
 	Dispatch(params.DispatchTime)
 
-	// get balance after transfer
+	// get and check balance after transfer
 	balanceAfterTransfer, err := GetBalanceAndCompare(params.JsonRpcList, acc)
 	if err != nil || len(balanceAfterTransfer) == 0 {
 		_ = log4.Error("get balance failed")
 		return false
-	} else {
-		log4.Info("%s balance after transfer %s", acc.Address.ToBase58(), balanceAfterTransfer[0].Ont)
+	}
+	if balanceAfterTransfer[0].Ont != "0" {
+		_ = log4.Error("balance after transfer should be 0")
+		return false
 	}
 
-	// check tx
+	// check preTx
 	succeed := make(map[string]struct{})
-	for _, tx := range transList {
-		hash := tx.Txn.Hash()
+	for _, pretx := range transList {
+		prehash := pretx.Txn.Hash()
 		for _, jsonrpc := range params.JsonRpcList {
-			_, err := common.GetTxByHash(jsonrpc, hash)
-			if err == nil {
-				succeed[hash.ToHexString()] = struct{}{}
-				log4.Debug("node %s, succeed tx %s", jsonrpc, hash.ToHexString())
+			curtx, err := common.GetTxByHash(jsonrpc, prehash)
+			if err != nil {
+				_ = log4.Error("===== node %s, failed preTx %s", jsonrpc, prehash.ToHexString())
 			} else {
-				_ = log4.Error("node %s, failed tx %s", jsonrpc, hash.ToHexString())
+				safehash := strings.ToLower(prehash.ToHexString())
+				succeed[safehash] = struct{}{}
+
+				var bz []byte
+				sink := common2.NewZeroCopySink(bz)
+				payload := curtx.Payload
+				payload.Serialization(sink)
+				log4.Debug("===== node %s, succeed preTx %s, payload %s", jsonrpc, prehash.ToHexString(), string(bz))
 			}
 		}
 	}
 	if len(succeed) > 0 {
-		_ = log4.Error("more than 1 tx succeed")
-		return false
-	}
-
-	// check balance
-	b1, _ := new(big.Float).SetString(balanceBeforeTransfer[0].Ont)
-	b2, _ := new(big.Float).SetString(balanceAfterTransfer[0].Ont)
-	alpha := new(big.Float).SetUint64(uint64(amount))
-	if new(big.Float).Sub(b1, alpha).Cmp(b2) != 0 {
-		_ = log4.Error("doubleSpend")
-		return false
+		_ = log4.Warn("===== more than 1 tx in txpool")
 	}
 
 	return true
@@ -723,10 +720,6 @@ func TransferOnt() bool {
 
 	if err := GetParamsFromJsonFile("Transfer.json", &params); err != nil {
 		_ = log4.Error("%s", err)
-		return false
-	}
-	if params.Amount < 2 {
-		_ = log4.Error("amount should >= 2")
 		return false
 	}
 	err := singleTransfer(params.Remote, params.JsonRpc, params.DestAccount, params.Amount, params.DispatchTime)
@@ -785,14 +778,14 @@ func singleTransfer(remote, jsonrpc, dest string, amount uint64, expire int) err
 	tx, err := common.GetTxByHash(jsonrpc, hash)
 	if err == nil {
 		hash1 := tx.Hash()
-		log4.Debug("node %s, origin tx %s, succeed tx %s", jsonrpc, hash.ToHexString(), hash1.ToHexString())
+		log4.Debug("===== node %s, origin tx %s, succeed tx %s", jsonrpc, hash.ToHexString(), hash1.ToHexString())
 	} else {
-		_ = log4.Error("node %s, origin tx %s failed", jsonrpc, hash.ToHexString())
+		_ = log4.Error("===== node %s, origin tx %s failed", jsonrpc, hash.ToHexString())
 	}
 
-	log4.Info("src address %s, dst address %s", acc.Address.ToBase58(), dest)
-	log4.Info("before transfer, src %s, dst %s, ", srcbfTx.Ont, dstbfTx.Ont)
-	log4.Info("after transfer, src %s, dst %s, ", srcafTx.Ont, dstafTx.Ont)
+	log4.Info("===== src address %s, dst address %s", acc.Address.ToBase58(), dest)
+	log4.Info("===== before transfer, src %s, dst %s, ", srcbfTx.Ont, dstbfTx.Ont)
+	log4.Info("===== after transfer, src %s, dst %s, ", srcafTx.Ont, dstafTx.Ont)
 
 	return nil
 }
