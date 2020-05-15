@@ -196,8 +196,8 @@ func GenerateMultiRandomOntTransfer(acc *account.Account, dst string, initBalanc
 	return list, nil
 }
 
-// GenerateFakePeerIDs 生成距离为0的peerID列表
-func GenerateFakePeerIDs(tgID common3.PeerId, num int) ([]common3.PeerId, error) {
+// GenerateZeroDistancePeerIDs 生成距离为0的peerID列表
+func GenerateZeroDistancePeerIDs(tgID common3.PeerId, num int) ([]common3.PeerId, error) {
 	if num >= 128 {
 		return nil, fmt.Errorf("num invalid")
 	}

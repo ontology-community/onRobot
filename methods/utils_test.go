@@ -15,11 +15,11 @@ func TestCPL(t *testing.T) {
 	t.Log("random local kid distance", remoteKid.Id.ToUint64(), localKid.Id.ToUint64(), distance)
 }
 
-// go test -count=1 -v github.com/ontology-community/onRobot/methods -run TestFakePeerID
-func TestFakePeerID(t *testing.T) {
+// go test -count=1 -v github.com/ontology-community/onRobot/methods -run GenerateZeroDistancePeerIDs
+func TestGenerateZeroDistancePeerIDs(t *testing.T) {
 	kid := common.RandPeerKeyId()
 
-	fakePeerIDs, err := GenerateFakePeerIDs(kid.Id, 16)
+	fakePeerIDs, err := GenerateZeroDistancePeerIDs(kid.Id, 16)
 	if err != nil {
 		t.Fatal(err)
 	}

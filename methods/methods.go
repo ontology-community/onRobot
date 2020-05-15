@@ -80,9 +80,9 @@ func Demo() bool {
 	return true
 }
 
-func FakePeerID() bool {
+func FakePeerIDs() bool {
 	kid := common3.RandPeerKeyId()
-	list, err := GenerateFakePeerIDs(kid.Id, 127)
+	list, err := GenerateZeroDistancePeerIDs(kid.Id, 127)
 	if err != nil {
 		_ = log4.Error("%s", err)
 		return false
