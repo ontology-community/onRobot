@@ -573,7 +573,6 @@ func AttackTxPool() bool {
 			tx, err := common.GetTxByHash(jsonrpc, hash)
 			if tx != nil || err == nil {
 				_ = log4.Warn("invalid tx persisted in txn pool")
-				//return false
 			} else {
 				log4.Debug("node %s txnpool without tx %s", jsonrpc, hash.ToHexString())
 			}
