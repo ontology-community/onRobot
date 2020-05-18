@@ -298,6 +298,6 @@ a、单个恶意节点，对多个目标seed节点发送连续的4笔交易，�
   "DestAccount": "AG4pZwKa9cr8ca7PED7FqzUfcwnrQ2N26w"
 }   
 结果:
-a、目标seed节点交易池应该相同，都有4笔交易
+a、目标seed节点交易池能实时查到这几笔交易
 b、测试前后查询余额账户，只转出一笔
 ```
