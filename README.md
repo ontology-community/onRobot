@@ -206,10 +206,13 @@ d、虚假peer主动发起连接，并持续ping
 }
 结果:
 a、节点正常出块
-b、节点dht原邻结点151~165一直存在
+b、节点dht原邻结点151~165一直存在，重启后也不会被挤出
 c、邻结点列表存在大量虚假连接
 解释:
-当连接数达到maxInBound时，会拒绝后续的连接，而不是替换老的连接
+连接建立时会先通过connect_controller的逻辑判断，而不是直接进入dht，
+当连接数达到maxInBound时，会拒绝后续的连接，而不是替换老的连接.
+重启时，bootstrap&recent_peers会并发加载相关节点，
+recent_peers内的节点列表头部包含bootstrap内的相关节点。
 ```
 
 #### 10.askFakeBlocks
