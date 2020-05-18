@@ -78,6 +78,19 @@ func GetBalance(rpc string, addr common.Address) (*common2.BalanceOfRsp, error) 
 	return resp, nil
 }
 
+// GetMemPoolTxCount
+func GetMemPoolTxCount(addr string) ([]uint32, error) {
+	data, ontErr := sendRpcRequest(addr, "getmempooltxcount", []interface{}{})
+	if ontErr != nil {
+		return nil, ontErr.Error
+	}
+	var list []uint32
+	if err := json.Unmarshal(data, &list); err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
 // GetTxByHash
 func GetTxByHash(addr string, hash common.Uint256) (*types.Transaction, error) {
 	data, ontErr := sendRpcRequest(addr, "getrawtransaction", []interface{}{hash.ToHexString()})

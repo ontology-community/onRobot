@@ -568,16 +568,26 @@ func AttackTxPool() bool {
 
 	// check tx
 	for _, jsonrpc := range params.JsonRpcList {
-		for _, tx := range transList {
-			hash := tx.Txn.Hash()
-			tx, err := common.GetTxByHash(jsonrpc, hash)
-			if tx != nil || err == nil {
-				_ = log4.Warn("invalid tx persisted in txn pool")
-			} else {
-				log4.Debug("node %s txnpool without tx %s", jsonrpc, hash.ToHexString())
+		list, err := common.GetMemPoolTxCount(jsonrpc)
+		if err != nil {
+			_ = log4.Error("get %s mem pool tx count err: %s", jsonrpc, err)
+		} else {
+			for i, v := range list {
+				log4.Debug("get %s mem pool tx count %d %d", jsonrpc, i, v)
 			}
 		}
 	}
+	//for _, jsonrpc := range params.JsonRpcList {
+	//	for _, tx := range transList {
+	//		hash := tx.Txn.Hash()
+	//		tx, err := common.GetTxByHash(jsonrpc, hash)
+	//		if tx != nil || err == nil {
+	//			_ = log4.Warn("invalid tx persisted in txn pool")
+	//		} else {
+	//			log4.Debug("node %s txnpool without tx %s", jsonrpc, hash.ToHexString())
+	//		}
+	//	}
+	//}
 
 	// get current block height
 	curBlkHeightList, err := GetBlockHeightList(params.JsonRpcList)
