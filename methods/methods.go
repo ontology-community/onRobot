@@ -28,6 +28,7 @@ import (
 	"github.com/ontology-community/onRobot/p2pserver/message/types"
 	"github.com/ontology-community/onRobot/p2pserver/net/netserver"
 	"github.com/ontology-community/onRobot/p2pserver/protocols"
+	"math"
 	"math/big"
 	"strconv"
 	"strings"
@@ -524,12 +525,7 @@ func AttackTxPool() bool {
 	time.Sleep(1 * time.Second)
 
 	// send tx
-	data, err := strconv.Atoi(balanceBeforeTransfer[0].Ont)
-	if err != nil {
-		_ = log4.Error("%s", err)
-		return false
-	}
-	amount := uint64(data + 10000)
+	var amount uint64 = math.MaxUint64
 	transList, err := GenerateMultiOntTransfer(acc, params.DestAccount, amount, params.TxNum)
 	if err != nil {
 		_ = log4.Error("%s", err)
