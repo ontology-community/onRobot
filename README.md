@@ -116,10 +116,7 @@ a、使用参数构造虚假version，并发送到某个目标节点
   "SoftVersion":"v1.10.0"           // softVersion字段
 }
 结果:
-a、连接成功
-解释:
-服务端接收到连接后，只对version字段deserialize，并不进行校验；
-version字段只用于区分版本。
+a、连接失败
 ```
 
 #### 5、heartbeat
