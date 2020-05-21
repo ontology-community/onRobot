@@ -1,34 +1,31 @@
-GOFMT=gofmt
-GC=go build
+# Go parameters
+GOCMD=GO111MODULE=on go
+GOBUILD=$(GOCMD) build
+GOTEST=$(GOCMD) test
 
-VERSION := $(shell git describe --always --tags --long)
-BUILD_NODE_PAR = -ldflags "-X main.Version=1.0.0"
+build-robot:
+	rm -rf target/
+	mkdir target target/params
+	cp log4go.xml target/log4go.xml
+	cp cmd/robot/config.json target/config.json
+	cp cmd/robot/wallet.dat target/wallet.dat
+	cp cmd/robot/transfer_wallet.dat target/transfer_wallet.dat
+	cp -r cmd/robot/params/* target/params/
+	$(GOBUILD) -o target/robot cmd/robot/main.go
 
-ARCH=$(shell uname -m)
-SRC_FILES = $(shell git ls-files | grep -e .go$ | grep -v _test.go)
+build: build-robot
 
-robot: $(SRC_FILES)
-	$(GC)  $(BUILD_NODE_PAR) -o robot main.go
+robot:
+	@echo test case $(t)
+	./target/robot -config=target/config.json \
+	-log=target/log4go.xml \
+	-params=target/params \
+	-wallet=target/wallet.dat \
+	-transfer=target/transfer_wallet.dat \
+	-t=$(t)
 
-robot-cross: robot-windows robot-linux robot-darwin
-
-robot-windows:
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GC) $(BUILD_NODE_PAR) -o robot-windows.exe main.go
-
-robot-linux:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GC) $(BUILD_NODE_PAR) -o robot-linux main.go
-
-robot-darwin:
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GC) $(BUILD_NODE_PAR) -o robot-darwin main.go
-
-tools-cross: tools-windows tools-linux tools-darwin
-
-format:
-	$(GOFMT) -w main.go
+node:
+	$(GOBUILD) -o node cmd/node/main.go
 
 clean:
-	rm -rf *.8 *.o *.out *.6 *exe
-	rm -rf robot robot-*
-
-remake:
-	make clean && make robot
+	rm -rf target/
