@@ -2,21 +2,44 @@
 ontology p2pserver 测试工具
 
 ## 使用方式
-下载项目onRobot
-```bash
+下载项目onRobot \
 https://github.com/ontology-community/onRobot.git
-```
-根据环境make得到可执行文件
 
-在config.json文件配置节点列表以及magic等参数。
-具体测试时，不同的测试用例在params路径下修改用例参数。
-然后运行命令如下:
+在cmd目录下找到需要运行的服务，比如robot，目录树如下:
+```dtd
+cmd/robot/
+├── config.json
+├── main.go
+├── params
+│   ├── AskFakeBlocks.json
+│   ├── AttackTxPool.json
+│   ├── Connect.json
+│   ├── DDOS.json
+│   ├── DoubleSpend.json
+│   ├── FakePeerID.json
+│   ├── HandshakeTimeout.json
+│   ├── HandshakeWrongMsg.json
+│   ├── Heartbeat.json
+│   ├── HeartbeatInterruptPing.json
+│   ├── HeartbeatInterruptPong.json
+│   ├── ResetPeerID.json
+│   └── Transfer.json
+├── transfer_wallet.dat
+└── wallet.dat
+```
+其中，config.json是配置文件，params目录下包含具体测试需要的参数
+
+构建
 ```bash
-./robot -t=handshake
+make build
+```
+运行
+```bash
+make run t=demo
 ```
 也支持批量测试
 ```bash
-./robot -t=handshake,heartbeat
+make run t=transferOnt,doubleSpend
 ```
 
 ## 测试用例
