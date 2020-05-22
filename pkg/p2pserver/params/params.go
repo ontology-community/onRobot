@@ -44,6 +44,7 @@ var (
 	HeartbeatInterruptAfterStartTime int64
 	HeartbeatInterruptPingLastTime   int64
 	HeartbeatInterruptPongLastTime   int64
+	EnableTxStat                     bool
 )
 
 var (
@@ -55,6 +56,7 @@ var (
 	DefHeartbeatInterruptAfterStartTime int64  = 0
 	DefHeartbeatInterruptPingLastTime   int64  = 0
 	DefHeartbeatInterruptPongLastTime   int64  = 0
+	DefEnableTxStat                     bool   = false
 )
 
 func InitializeTestParams() {
@@ -66,6 +68,7 @@ func InitializeTestParams() {
 	HeartbeatInterruptAfterStartTime = DefHeartbeatInterruptAfterStartTime
 	HeartbeatInterruptPingLastTime = DefHeartbeatInterruptPingLastTime
 	HeartbeatInterruptPongLastTime = DefHeartbeatInterruptPongLastTime
+	EnableTxStat = DefEnableTxStat
 }
 
 func Reset() {
@@ -105,4 +108,9 @@ func SetHeartbeatTestInterruptPingLastTime(sec int64) {
 }
 func SetHeartbeatTestInterruptPongLastTime(sec int64) {
 	HeartbeatInterruptPongLastTime = sec
+}
+
+// tx stat
+func SetEnableTxStat() {
+	EnableTxStat = true
 }

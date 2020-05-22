@@ -20,6 +20,7 @@ package netserver
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"time"
 
@@ -80,6 +81,24 @@ func NewNetServerWithKid(protocol p2p.Protocol, conf *config.P2PNodeConfig, kid 
 	return n, nil
 }
 
+//NewNetServer return the net object in p2p
+func NewNetServerWithTxStat(protocol p2p.Protocol, conf *config.P2PNodeConfig) (*NetServer, error) {
+	n := &NetServer{
+		NetChan:    make(chan *types.MsgPayload, common.CHAN_CAPABILITY),
+		base:       &peer.PeerInfo{},
+		Np:         NewNbrPeers(),
+		protocol:   protocol,
+		stopRecvCh: make(chan bool),
+		stat:       NewMsgStat(),
+	}
+
+	err := n.init(conf)
+	if err != nil {
+		return nil, err
+	}
+	return n, nil
+}
+
 //NetServer represent all the actions in net layer
 type NetServer struct {
 	base     *peer.PeerInfo
@@ -91,6 +110,8 @@ type NetServer struct {
 	connCtrl *connect_controller.ConnectController
 
 	stopRecvCh chan bool // To stop sync channel
+
+	stat *TxStat
 }
 
 // processMessage loops to handle the message from the network
@@ -108,6 +129,10 @@ func (this *NetServer) processMessage(channel chan *types.MsgPayload,
 
 				ctx := p2p.NewContext(sender, this, data.PayloadSize)
 				go this.protocol.HandlePeerMessage(ctx, data.Payload)
+
+				if this.stat != nil {
+					this.stat.HandleRecvMsg(data)
+				}
 			}
 		case <-stopCh:
 			return
@@ -139,7 +164,7 @@ func (this *NetServer) initWithKid(conf *config.P2PNodeConfig, kid *common.PeerK
 		log4.Error("[p2p]sync port invalid")
 		return errors.New("[p2p]sync port invalid")
 	}
-	this.listener, err = connect_controller.NewListener(syncPort, config.DefConfig.P2PNode)
+	this.listener, err = connect_controller.NewListener(syncPort, conf)
 	if err != nil {
 		log4.Error("[p2p]failed to create sync listener")
 		return errors.New("[p2p]failed to create sync listener")
@@ -175,7 +200,7 @@ func (this *NetServer) init(conf *config.P2PNodeConfig) error {
 		log4.Error("[p2p]sync port invalid")
 		return errors.New("[p2p]sync port invalid")
 	}
-	this.listener, err = connect_controller.NewListener(syncPort, config.DefConfig.P2PNode)
+	this.listener, err = connect_controller.NewListener(syncPort, conf)
 	if err != nil {
 		log4.Error("[p2p]failed to create sync listener")
 		return errors.New("[p2p]failed to create sync listener")
@@ -410,4 +435,11 @@ func (this *NetServer) SendTo(p common.PeerId, msg types.Message) {
 	if peer != nil {
 		this.Send(peer, msg)
 	}
+}
+
+func (this *NetServer) GetStat() (*TxStat, error) {
+	if this.stat == nil {
+		return nil, fmt.Errorf("stat not exist")
+	}
+	return this.stat, nil
 }

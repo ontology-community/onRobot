@@ -18,5 +18,6 @@ require (
 	github.com/scylladb/go-set v1.0.2
 	github.com/stretchr/testify v1.4.0
 	github.com/tyler-smith/go-bip39 v1.0.2
+	github.com/urfave/cli v1.22.1
 	golang.org/x/crypto v0.0.0-20191219195013-becbf705a915
 )

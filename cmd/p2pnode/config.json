@@ -1,0 +1,34 @@
+{
+  "GasPrice":0,
+  "GasLimit":20000,
+  "Net":{
+    "ReservedPeersOnly":false,
+    "ReservedCfg":{
+      "reserved":[
+        "1.2.3.4",
+        "1.2.3.5"
+      ],
+      "mask":[
+        "172.168.3.151",
+        "172.168.3.152",
+        "172.168.3.153",
+        "172.168.3.154",
+        "172.168.3.155",
+        "172.168.3.156",
+        "172.168.3.157"
+      ]
+    },
+    "NetworkMagic":299,
+    "NetworkId":299,
+    "NetworkName":"",
+    "IsTLS":false,
+    "MaxHdrSyncReqs":1024,
+    "MaxConnInBound":1024,
+    "MaxConnOutBound":1024,
+    "MaxConnInBoundForSingleIP":1024
+  },
+  "SeedList": [
+    "127.0.0.1:10098",
+    "127.0.0.1:10098"
+  ]
+}

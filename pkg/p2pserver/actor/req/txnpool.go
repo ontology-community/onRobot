@@ -22,7 +22,7 @@ import (
 	log4 "github.com/alecthomas/log4go"
 	"github.com/ontio/ontology-eventbus/actor"
 	"github.com/ontio/ontology/core/types"
-	tc "github.com/ontio/ontology/txnpool/common"
+	tc "github.com/ontology-community/onRobot/pkg/txnpool/common"
 )
 
 var txnPoolPid *actor.PID

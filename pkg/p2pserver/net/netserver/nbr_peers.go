@@ -70,9 +70,9 @@ type connectedPeer struct {
 //NbrPeers: The neigbor list
 type NbrPeers struct {
 	sync.RWMutex
-	List map[common.PeerId]connectedPeer
-
+	List          map[common.PeerId]connectedPeer
 	nextSessionId uint64
+	stat          *TxStat
 }
 
 func (self *NbrPeers) getSessionId() uint64 {
@@ -81,6 +81,13 @@ func (self *NbrPeers) getSessionId() uint64 {
 
 func NewNbrPeers() *NbrPeers {
 	return &NbrPeers{
+		List: make(map[common.PeerId]connectedPeer),
+	}
+}
+
+func NewNbrPeersWithTxStat(stat *TxStat) *NbrPeers {
+	return &NbrPeers{
+		stat: stat,
 		List: make(map[common.PeerId]connectedPeer),
 	}
 }
@@ -95,6 +102,10 @@ func (this *NbrPeers) Broadcast(msg types.Message) {
 	for _, node := range this.List {
 		if node.Peer.GetRelay() {
 			go node.Peer.SendRaw(msg.CmdType(), sink.Bytes())
+
+			if this.stat != nil {
+				this.stat.HandleSendMsg(node.Peer.GetID(), msg)
+			}
 		}
 	}
 }
