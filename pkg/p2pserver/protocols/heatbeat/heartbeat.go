@@ -18,9 +18,6 @@
 package heatbeat
 
 import (
-	"sync/atomic"
-	"time"
-
 	log4 "github.com/alecthomas/log4go"
 	"github.com/ontio/ontology/common/config"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
@@ -28,6 +25,8 @@ import (
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/params"
+	"sync/atomic"
+	"time"
 )
 
 type HeartBeat struct {
@@ -83,7 +82,6 @@ func (this *HeartBeat) heartBeatService() {
 	}
 }
 
-// mark:
 func (this *HeartBeat) ping() {
 	if this.NeedInterrupt(true) {
 		log4.Debug("[p2p]interrupt ping...")

@@ -29,6 +29,7 @@ import (
 	comm "github.com/ontio/ontology/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
+	st "github.com/ontology-community/onRobot/pkg/p2pserver/stat"
 )
 
 // Conn is a net.Conn wrapper to do some clean up when Close.
@@ -70,9 +71,10 @@ type connectedPeer struct {
 //NbrPeers: The neigbor list
 type NbrPeers struct {
 	sync.RWMutex
-	List          map[common.PeerId]connectedPeer
+	List map[common.PeerId]connectedPeer
+
 	nextSessionId uint64
-	stat          *TxStat
+	stat          *st.TxStat
 }
 
 func (self *NbrPeers) getSessionId() uint64 {
@@ -85,7 +87,7 @@ func NewNbrPeers() *NbrPeers {
 	}
 }
 
-func NewNbrPeersWithTxStat(stat *TxStat) *NbrPeers {
+func NewNbrPeersWithTxStat(stat *st.TxStat) *NbrPeers {
 	return &NbrPeers{
 		stat: stat,
 		List: make(map[common.PeerId]connectedPeer),
@@ -102,10 +104,10 @@ func (this *NbrPeers) Broadcast(msg types.Message) {
 	for _, node := range this.List {
 		if node.Peer.GetRelay() {
 			go node.Peer.SendRaw(msg.CmdType(), sink.Bytes())
+		}
 
-			if this.stat != nil {
-				this.stat.HandleSendMsg(node.Peer.GetID(), msg)
-			}
+		if this.stat != nil {
+			this.stat.HandleSendMsg(node.Peer.GetID(), msg)
 		}
 	}
 }

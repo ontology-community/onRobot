@@ -21,8 +21,6 @@ package protocols
 import (
 	"errors"
 	"fmt"
-	"strconv"
-
 	log4 "github.com/alecthomas/log4go"
 	"github.com/hashicorp/golang-lru"
 	"github.com/ontio/ontology/common"
@@ -69,7 +67,6 @@ func (self *MsgHandler) start(net p2p.P2P) {
 	self.discovery = discovery.NewDiscovery(net, config.DefConfig.P2PNode.ReservedCfg.MaskPeers, 0)
 	seeds := config.DefConfig.Genesis.SeedList
 	self.bootstrap = bootstrap.NewBootstrapService(net, seeds)
-	// mark:
 	self.heatBeat = heatbeat.NewHeartBeat(net)
 	self.persistRecentPeerService = recent_peers.NewPersistRecentPeerService(net)
 	go self.persistRecentPeerService.Start()
@@ -98,13 +95,13 @@ func (self *MsgHandler) HandleSystemMessage(net p2p.P2P, msg p2p.SystemMessage) 
 		self.reconnect.OnAddPeer(m.Info)
 		self.discovery.OnAddPeer(m.Info)
 		self.bootstrap.OnAddPeer(m.Info)
-		self.persistRecentPeerService.AddNodeAddr(m.Info.Addr + strconv.Itoa(int(m.Info.Port)))
+		self.persistRecentPeerService.AddNodeAddr(m.Info.RemoteListenAddress())
 	case p2p.PeerDisConnected:
 		self.blockSync.OnDelNode(m.Info.Id)
 		self.reconnect.OnDelPeer(m.Info)
 		self.discovery.OnDelPeer(m.Info)
 		self.bootstrap.OnDelPeer(m.Info)
-		self.persistRecentPeerService.DelNodeAddr(m.Info.Addr + strconv.Itoa(int(m.Info.Port)))
+		self.persistRecentPeerService.DelNodeAddr(m.Info.RemoteListenAddress())
 	case p2p.NetworkStop:
 		self.stop()
 	}
@@ -146,7 +143,7 @@ func (self *MsgHandler) HandlePeerMessage(ctx *p2p.Context, msg msgTypes.Message
 		if msgType == msgCommon.VERACK_TYPE || msgType == msgCommon.VERSION_TYPE {
 			log4.Info("receive message: %s from peer %s", msgType, ctx.Sender().GetAddr())
 		} else {
-			log4.Warn("unknown message handler for the recvCh: ", msgType)
+			log4.Warn("unknown message handler for the msg: ", msgType)
 		}
 	}
 }
@@ -444,7 +441,7 @@ func getRespCacheValue(key string) interface{} {
 	return nil
 }
 
-//saveRespCache save response recvCh to cache
+//saveRespCache save response msg to cache
 func saveRespCache(key string, value interface{}) bool {
 	if respCache == nil {
 		var err error

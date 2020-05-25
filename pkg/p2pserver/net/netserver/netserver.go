@@ -31,6 +31,7 @@ import (
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
 	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
+	st "github.com/ontology-community/onRobot/pkg/p2pserver/stat"
 )
 
 //NewNetServer return the net object in p2p
@@ -89,7 +90,7 @@ func NewNetServerWithTxStat(protocol p2p.Protocol, conf *config.P2PNodeConfig) (
 		Np:         NewNbrPeers(),
 		protocol:   protocol,
 		stopRecvCh: make(chan bool),
-		stat:       NewMsgStat(),
+		stat:       st.NewMsgStat(),
 	}
 
 	err := n.init(conf)
@@ -110,8 +111,7 @@ type NetServer struct {
 	connCtrl *connect_controller.ConnectController
 
 	stopRecvCh chan bool // To stop sync channel
-
-	stat *TxStat
+	stat       *st.TxStat
 }
 
 // processMessage loops to handle the message from the network
@@ -141,49 +141,15 @@ func (this *NetServer) processMessage(channel chan *types.MsgPayload,
 }
 
 //init initializes attribute of network server
-func (this *NetServer) initWithKid(conf *config.P2PNodeConfig, kid *common.PeerKeyId) error {
-
-	httpInfo := conf.HttpInfoPort
-	nodePort := conf.NodePort
-	if nodePort == 0 {
-		log4.Error("[p2p]link port invalid")
-		return errors.New("[p2p]invalid link port")
-	}
-
-	this.base = peer.NewPeerInfo(kid.Id, common.PROTOCOL_VERSION, common.SERVICE_NODE, true, httpInfo,
-		nodePort, 0, config.Version, "")
-
-	option, err := connect_controller.ConnCtrlOptionFromConfig(conf)
-	if err != nil {
-		return err
-	}
-	this.connCtrl = connect_controller.NewConnectController(this.base, kid, option)
-
-	syncPort := this.base.Port
-	if syncPort == 0 {
-		log4.Error("[p2p]sync port invalid")
-		return errors.New("[p2p]sync port invalid")
-	}
-	this.listener, err = connect_controller.NewListener(syncPort, conf)
-	if err != nil {
-		log4.Error("[p2p]failed to create sync listener")
-		return errors.New("[p2p]failed to create sync listener")
-	}
-
-	log4.Info("[p2p]init peer ID to %s", this.base.Id.ToHexString())
-
-	return nil
-}
-
-//init initializes attribute of network server
 func (this *NetServer) init(conf *config.P2PNodeConfig) error {
 	keyId := common.RandPeerKeyId()
 
 	httpInfo := conf.HttpInfoPort
 	nodePort := conf.NodePort
 	if nodePort == 0 {
-		log4.Error("[p2p]link port invalid")
-		return errors.New("[p2p]invalid link port")
+		err := errors.New("[p2p]invalid link port")
+		log4.Error(err)
+		return err
 	}
 
 	this.base = peer.NewPeerInfo(keyId.Id, common.PROTOCOL_VERSION, common.SERVICE_NODE, true, httpInfo,
@@ -197,13 +163,53 @@ func (this *NetServer) init(conf *config.P2PNodeConfig) error {
 
 	syncPort := this.base.Port
 	if syncPort == 0 {
-		log4.Error("[p2p]sync port invalid")
-		return errors.New("[p2p]sync port invalid")
+		err = errors.New("[p2p]sync port invalid")
+		log4.Error(err)
+		return err
+	}
+	this.listener, err = connect_controller.NewListener(syncPort, config.DefConfig.P2PNode)
+	if err != nil {
+		err = errors.New("[p2p]failed to create sync listener")
+		log4.Error(err)
+		return err
+	}
+
+	log4.Info("[p2p]init peer ID to %s", this.base.Id.ToHexString())
+
+	return nil
+}
+
+//init initializes attribute of network server
+func (this *NetServer) initWithKid(conf *config.P2PNodeConfig, kid *common.PeerKeyId) error {
+
+	httpInfo := conf.HttpInfoPort
+	nodePort := conf.NodePort
+	if nodePort == 0 {
+		err := errors.New("[p2p]invalid link port")
+		log4.Error(err)
+		return err
+	}
+
+	this.base = peer.NewPeerInfo(kid.Id, common.PROTOCOL_VERSION, common.SERVICE_NODE, true, httpInfo,
+		nodePort, 0, config.Version, "")
+
+	option, err := connect_controller.ConnCtrlOptionFromConfig(conf)
+	if err != nil {
+		return err
+	}
+	this.connCtrl = connect_controller.NewConnectController(this.base, kid, option)
+
+	syncPort := this.base.Port
+	if syncPort == 0 {
+		err = errors.New("[p2p]sync port invalid")
+		log4.Error(err)
+		return err
 	}
 	this.listener, err = connect_controller.NewListener(syncPort, conf)
 	if err != nil {
-		log4.Error("[p2p]failed to create sync listener")
-		return errors.New("[p2p]failed to create sync listener")
+		err = errors.New("[p2p]failed to create sync listener")
+		log4.Error(err)
+		return err
 	}
 
 	log4.Info("[p2p]init peer ID to %s", this.base.Id.ToHexString())
@@ -213,8 +219,9 @@ func (this *NetServer) init(conf *config.P2PNodeConfig) error {
 
 func (this *NetServer) ResetRandomPeerID() error {
 	if this.base == nil {
-		log4.Error("[p2p]origin peer info invalid")
-		return errors.New("[p2p]origin peer info invalid")
+		err := errors.New("[p2p]origin peer info invalid")
+		log4.Error(err)
+		return err
 	}
 
 	keyId := common.RandPeerKeyId()
@@ -301,7 +308,11 @@ func (this *NetServer) Send(p *peer.Peer, msg types.Message) error {
 
 //Connect used to connect net address under sync or cons mode
 func (this *NetServer) Connect(addr string) error {
-	return this.connect(addr)
+	err := this.connect(addr)
+	if err != nil {
+		log4.Debug("%s connecting to %s failed, err: %s", this.base.Addr, addr, err)
+	}
+	return err
 }
 
 func (this *NetServer) ConnectAndReturnPeer(addr string) (*peer.Peer, error) {
@@ -437,7 +448,7 @@ func (this *NetServer) SendTo(p common.PeerId, msg types.Message) {
 	}
 }
 
-func (this *NetServer) GetStat() (*TxStat, error) {
+func (this *NetServer) GetStat() (*st.TxStat, error) {
 	if this.stat == nil {
 		return nil, fmt.Errorf("stat not exist")
 	}

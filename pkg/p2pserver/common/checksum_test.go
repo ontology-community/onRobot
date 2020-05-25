@@ -15,32 +15,21 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with The ontology.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-package req
+package common
 
 import (
-	log4 "github.com/alecthomas/log4go"
-	"github.com/ontio/ontology-eventbus/actor"
-	"github.com/ontio/ontology/core/types"
-	tc "github.com/ontio/ontology/txnpool/common"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-var txnPoolPid *actor.PID
+func TestChecksum(t *testing.T) {
+	data := []byte{1, 2, 3}
+	cs := Checksum(data)
 
-func SetTxnPoolPid(txnPid *actor.PID) {
-	txnPoolPid = txnPid
-}
+	writer := NewChecksum()
+	writer.Write(data)
+	checksum2 := writer.Sum(nil)
+	assert.Equal(t, cs[:], checksum2)
 
-//add txn to txnpool
-func AddTransaction(transaction *types.Transaction) {
-	if txnPoolPid == nil {
-		log4.Error("[p2p]net_server AddTransaction(): txnpool pid is nil")
-		return
-	}
-	txReq := &tc.TxReq{
-		Tx:         transaction,
-		Sender:     tc.NetSender,
-		TxResultCh: nil,
-	}
-	txnPoolPid.Tell(txReq)
 }

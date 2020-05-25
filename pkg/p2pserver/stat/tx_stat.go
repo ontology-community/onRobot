@@ -1,4 +1,4 @@
-package netserver
+package stat
 
 import (
 	"fmt"

@@ -16,31 +16,39 @@
  * along with The ontology.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package req
+package common
 
 import (
-	log4 "github.com/alecthomas/log4go"
-	"github.com/ontio/ontology-eventbus/actor"
-	"github.com/ontio/ontology/core/types"
-	tc "github.com/ontio/ontology/txnpool/common"
+	"fmt"
+	"math/rand"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
-var txnPoolPid *actor.PID
+func TestConvertPeerID(t *testing.T) {
+	start := time.Now().Unix()
+	fmt.Println("start:", start)
+	RandPeerKeyId()
 
-func SetTxnPoolPid(txnPid *actor.PID) {
-	txnPoolPid = txnPid
+	end := time.Now().Unix()
+	fmt.Println("end:", end)
+	fmt.Println(end - start)
 }
 
-//add txn to txnpool
-func AddTransaction(transaction *types.Transaction) {
-	if txnPoolPid == nil {
-		log4.Error("[p2p]net_server AddTransaction(): txnpool pid is nil")
-		return
+func TestKIdToUint64(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		data := rand.Uint64()
+		id := PseudoPeerIdFromUint64(data)
+		data2 := id.ToUint64()
+		assert.Equal(t, data, data2)
 	}
-	txReq := &tc.TxReq{
-		Tx:         transaction,
-		Sender:     tc.NetSender,
-		TxResultCh: nil,
-	}
-	txnPoolPid.Tell(txReq)
+}
+
+func TestKadId_IsEmpty(t *testing.T) {
+	id := PeerId{}
+	assert.True(t, id.IsEmpty())
+	kid := RandPeerKeyId()
+	assert.False(t, kid.Id.IsEmpty())
 }

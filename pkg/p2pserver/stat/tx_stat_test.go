@@ -1,4 +1,4 @@
-package netserver
+package stat
 
 import (
 	common2 "github.com/ontio/ontology/common"

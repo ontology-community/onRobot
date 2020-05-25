@@ -35,7 +35,7 @@ import (
 	"github.com/ontio/ontology/core/types"
 )
 
-var Difficulty = 4 //bit
+var Difficulty = 18 //bit
 
 type PeerId struct {
 	val common.Address
@@ -65,13 +65,6 @@ func (self *PeerId) Deserialization(source *common.ZeroCopySource) error {
 
 func (self *PeerId) ToHexString() string {
 	return self.val.ToHexString()
-}
-
-func (self *PeerId) FromHexString(data string) error {
-	arr := []byte(data)
-	reverse := common.ToArrayReverse(arr)
-	source := common.NewZeroCopySource(reverse)
-	return self.Deserialization(source)
 }
 
 type PeerKeyId struct {

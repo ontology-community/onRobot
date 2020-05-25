@@ -16,31 +16,15 @@
  * along with The ontology.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package req
+package types
 
 import (
-	log4 "github.com/alecthomas/log4go"
-	"github.com/ontio/ontology-eventbus/actor"
-	"github.com/ontio/ontology/core/types"
-	tc "github.com/ontio/ontology/txnpool/common"
+	"testing"
 )
 
-var txnPoolPid *actor.PID
+func TestPingSerializationDeserialization(t *testing.T) {
+	var msg Ping
+	msg.Height = 1
 
-func SetTxnPoolPid(txnPid *actor.PID) {
-	txnPoolPid = txnPid
-}
-
-//add txn to txnpool
-func AddTransaction(transaction *types.Transaction) {
-	if txnPoolPid == nil {
-		log4.Error("[p2p]net_server AddTransaction(): txnpool pid is nil")
-		return
-	}
-	txReq := &tc.TxReq{
-		Tx:         transaction,
-		Sender:     tc.NetSender,
-		TxResultCh: nil,
-	}
-	txnPoolPid.Tell(txReq)
+	MessageTest(t, &msg)
 }

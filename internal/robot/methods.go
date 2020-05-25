@@ -734,21 +734,16 @@ func TxCount() bool {
 		return false
 	}
 
-	_hash, err := transferWithoutCheckBalance(params.Remote, params.DestAccount, params.Amount)
+	_hash, err := transferTwiceWithoutCheckBalance(params.Remote, params.DestAccount, params.Amount)
 	if err != nil {
 		_ = log4.Error("%s", err)
 		return false
 	}
+	hash := _hash.ToHexString()
 
 	Dispatch(params.DispatchTime)
-	hash := _hash.ToHexString()
+
 	for _, ip := range params.IpList {
-		/*
-			http.HandleFunc("/stat/send/count", s.handleSendCount)
-			http.HandleFunc("/stat/send/dump", s.handleSendDump)
-			http.HandleFunc("/stat/recv/count", s.handleRecvCount)
-			http.HandleFunc("/stat/recv/dump", s.handleRecvDump)
-		*/
 		for p := params.StartHttpPort; p <= params.EndHttpPort; p++ {
 			// send count
 			res, err := httpRequestJson(ip, p, "/stat/send/count", "hash", hash)
@@ -862,7 +857,7 @@ func singleTransfer(remote, jsonrpc, dest string, amount uint64, expire int) err
 	return nil
 }
 
-func transferWithoutCheckBalance(remote, dest string, amount uint64) (hash ontcm.Uint256, err error) {
+func transferTwiceWithoutCheckBalance(remote, dest string, amount uint64) (hash ontcm.Uint256, err error) {
 	var (
 		acc  *account.Account
 		tran *types.Trn
@@ -885,6 +880,20 @@ func transferWithoutCheckBalance(remote, dest string, amount uint64) (hash ontcm
 		return
 	}
 
-	err = peer.Send(tran)
+	// send dump tx
+	if err = peer.Send(tran); err != nil {
+		return
+	} else {
+		log4.Info("send tx %s first time", hash.ToHexString())
+	}
+
+	time.Sleep(2 * time.Second)
+
+	if err = peer.Send(tran); err != nil {
+		return
+	} else {
+		log4.Info("send tx %s second time", hash.ToHexString())
+	}
+
 	return
 }

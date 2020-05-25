@@ -24,6 +24,7 @@ import (
 
 	log4 "github.com/alecthomas/log4go"
 	"github.com/ontio/ontology/common/config"
+	"github.com/ontio/ontology/core/ledger"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/net/netserver"
 	p2pnet "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
@@ -36,8 +37,11 @@ type P2PServer struct {
 }
 
 //NewServer return a new p2pserver according to the pubkey
-func NewServer(protocol *protocols.MsgHandler, conf *config.P2PNodeConfig) (*P2PServer, error) {
-	n, err := netserver.NewNetServer(protocol, conf)
+func NewServer() (*P2PServer, error) {
+	ld := ledger.DefLedger
+
+	protocol := protocols.NewMsgHandler(ld)
+	n, err := netserver.NewNetServer(protocol, config.DefConfig.P2PNode)
 	if err != nil {
 		return nil, err
 	}

@@ -18,6 +18,7 @@
 
 // Package txnpool provides a function to start micro service txPool for
 // external process
+
 package txnpool
 
 import (
@@ -25,9 +26,7 @@ import (
 
 	"github.com/ontio/ontology-eventbus/actor"
 	"github.com/ontio/ontology-eventbus/mailbox"
-	"github.com/ontio/ontology/events"
-	"github.com/ontio/ontology/events/message"
-	tc "github.com/ontology-community/onRobot/pkg/txnpool/common"
+	tc "github.com/ontio/ontology/txnpool/common"
 	tp "github.com/ontology-community/onRobot/pkg/txnpool/proc"
 )
 
@@ -47,32 +46,10 @@ func startActor(obj interface{}, id string) (*actor.PID, error) {
 	return pid, nil
 }
 
-// StartTxnPoolServer starts the txnpool server and registers
-// actors to handle the msgs from the network, http, consensus
-// and validators. Meanwhile subscribes the block complete  event.
-func StartTxnPoolServer(disablePreExec, disableBroadcastNetTx bool) (*tp.TXPoolServer, error) {
+func StartTxnPoolServer() (*tp.TXPoolServer, error) {
 	var s *tp.TXPoolServer
 
-	/* Start txnpool server to receive msgs from p2p,
-	 * consensus and valdiators
-	 */
-	s = tp.NewTxPoolServer(tc.MAX_WORKER_NUM, disablePreExec, disableBroadcastNetTx)
-
-	// Initialize an actor to handle the msgs from valdiators
-	rspActor := tp.NewVerifyRspActor(s)
-	rspPid, err := startActor(rspActor, "txVerifyRsp")
-	if rspPid == nil {
-		return nil, err
-	}
-	s.RegisterActor(tc.VerifyRspActor, rspPid)
-
-	// Initialize an actor to handle the msgs from consensus
-	tpa := tp.NewTxPoolActor(s)
-	txPoolPid, err := startActor(tpa, "txPool")
-	if txPoolPid == nil {
-		return nil, err
-	}
-	s.RegisterActor(tc.TxPoolActor, txPoolPid)
+	s = tp.NewTxPoolServer()
 
 	// Initialize an actor to handle the msgs from p2p and api
 	ta := tp.NewTxActor(s)
@@ -82,8 +59,5 @@ func StartTxnPoolServer(disablePreExec, disableBroadcastNetTx bool) (*tp.TXPoolS
 	}
 	s.RegisterActor(tc.TxActor, txPid)
 
-	// Subscribe the block complete event
-	var sub = events.NewActorSubscriber(txPoolPid)
-	sub.Subscribe(message.TOPIC_SAVE_BLOCK_COMPLETE)
 	return s, nil
 }

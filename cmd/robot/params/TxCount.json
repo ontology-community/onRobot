@@ -2,10 +2,10 @@
   "IpList": [
     "127.0.0.1"
   ],
-  "StartHttpPort": 10300,
-  "EndHttpPort": 10306,
-  "Remote": "127.0.0.1:20300",
+  "StartHttpPort": 10031,
+  "EndHttpPort": 10036,
+  "Remote": "127.0.0.1:20031",
   "DestAccount": "AWoQ8oFXXz9EwGBTP2mncqe5ngr1VnKagZ",
   "Amount": 1,
-  "DispatchTime": 2
+  "DispatchTime": 10
 }

@@ -19,14 +19,15 @@ package handshake
 
 import (
 	"fmt"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/params"
+	"net"
+	"time"
+
 	"github.com/blang/semver"
 	common2 "github.com/ontio/ontology/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/params"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
-	"net"
-	"time"
 )
 
 var HANDSHAKE_DURATION = 10 * time.Second // handshake time can not exceed this duration, or will treat as attack.
@@ -37,6 +38,7 @@ func SetTestVersion(version *types.Version) {
 }
 
 func HandshakeClient(info *peer.PeerInfo, selfId *common.PeerKeyId, conn net.Conn) (*peer.PeerInfo, error) {
+	version := newVersion(info)
 	if err := conn.SetDeadline(time.Now().Add(HANDSHAKE_DURATION)); err != nil {
 		return nil, err
 	}
@@ -46,16 +48,11 @@ func HandshakeClient(info *peer.PeerInfo, selfId *common.PeerKeyId, conn net.Con
 
 	// 1. sendMsg version
 	if params.HandshakeWrongMsg {
-		err := sendMsg(conn, TestVersion)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		version := newVersion(info)
-		err := sendMsg(conn, version)
-		if err != nil {
-			return nil, err
-		}
+		version = TestVersion
+	}
+	err := sendMsg(conn, version)
+	if err != nil {
+		return nil, err
 	}
 
 	// mark:
@@ -121,11 +118,12 @@ func HandshakeClient(info *peer.PeerInfo, selfId *common.PeerKeyId, conn net.Con
 		return nil, fmt.Errorf("client handshake stopped after send ack")
 	}
 
-	// 6. receive verack
 	msg, _, err = types.ReadMessage(conn)
 	if err != nil {
 		return nil, err
 	}
+
+	// 6. receive verack
 	if _, ok := msg.(*types.VerACK); !ok {
 		return nil, fmt.Errorf("handshake failed, expect verack message, got %s", msg.CmdType())
 	}

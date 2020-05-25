@@ -27,7 +27,6 @@ import (
 var (
 	Version   string
 	DefConfig = NewDHTConfig()
-	//ParamsFileDir string
 )
 
 type DHTConfig struct {
@@ -55,6 +54,5 @@ func (c *DHTConfig) Init(fileName string, nodePort, httpInfoPort uint) error {
 	cmf.DefConfig.Common.GasPrice = c.GasPrice
 	cmf.DefConfig.Common.GasLimit = c.GasLimit
 
-	//ParamsFileDir = paramsDir
 	return nil
 }

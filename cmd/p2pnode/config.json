@@ -1,5 +1,5 @@
 {
-  "GasPrice":100,
+  "GasPrice":0,
   "GasLimit":20000,
   "Net":{
     "ReservedPeersOnly":false,

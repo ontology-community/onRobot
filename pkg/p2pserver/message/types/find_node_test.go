@@ -10,37 +10,38 @@
  * The ontology is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
  * along with The ontology.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package req
+package types
 
 import (
-	log4 "github.com/alecthomas/log4go"
-	"github.com/ontio/ontology-eventbus/actor"
-	"github.com/ontio/ontology/core/types"
-	tc "github.com/ontio/ontology/txnpool/common"
+	"testing"
+
+	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 )
 
-var txnPoolPid *actor.PID
+func TestFindNodeRequest(t *testing.T) {
+	var req FindNodeReq
+	req.TargetID = common.PeerId{}
 
-func SetTxnPoolPid(txnPid *actor.PID) {
-	txnPoolPid = txnPid
+	MessageTest(t, &req)
 }
 
-//add txn to txnpool
-func AddTransaction(transaction *types.Transaction) {
-	if txnPoolPid == nil {
-		log4.Error("[p2p]net_server AddTransaction(): txnpool pid is nil")
-		return
+func TestFindNodeResponse(t *testing.T) {
+	var resp FindNodeResp
+	resp.TargetID = common.PeerId{}
+	resp.Address = "127.0.0.1:1222"
+	id := common.PseudoPeerIdFromUint64(uint64(0x456))
+	resp.CloserPeers = []common.PeerIDAddressPair{
+		common.PeerIDAddressPair{
+			ID:      id,
+			Address: "127.0.0.1:4222",
+		},
 	}
-	txReq := &tc.TxReq{
-		Tx:         transaction,
-		Sender:     tc.NetSender,
-		TxResultCh: nil,
-	}
-	txnPoolPid.Tell(txReq)
+	resp.Success = true
+
+	MessageTest(t, &resp)
 }

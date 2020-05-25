@@ -10,37 +10,25 @@
  * The ontology is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
  * along with The ontology.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package req
+package types
 
 import (
-	log4 "github.com/alecthomas/log4go"
-	"github.com/ontio/ontology-eventbus/actor"
-	"github.com/ontio/ontology/core/types"
-	tc "github.com/ontio/ontology/txnpool/common"
+	"testing"
+
+	cm "github.com/ontio/ontology/common"
 )
 
-var txnPoolPid *actor.PID
+func TestBlkReqSerializationDeserialization(t *testing.T) {
+	var msg BlocksReq
+	msg.HeaderHashCount = 1
 
-func SetTxnPoolPid(txnPid *actor.PID) {
-	txnPoolPid = txnPid
-}
+	hashstr := "8932da73f52b1e22f30c609988ed1f693b6144f74fed9a2a20869afa7abfdf5e"
+	msg.HashStart, _ = cm.Uint256FromHexString(hashstr)
 
-//add txn to txnpool
-func AddTransaction(transaction *types.Transaction) {
-	if txnPoolPid == nil {
-		log4.Error("[p2p]net_server AddTransaction(): txnpool pid is nil")
-		return
-	}
-	txReq := &tc.TxReq{
-		Tx:         transaction,
-		Sender:     tc.NetSender,
-		TxResultCh: nil,
-	}
-	txnPoolPid.Tell(txReq)
+	MessageTest(t, &msg)
 }

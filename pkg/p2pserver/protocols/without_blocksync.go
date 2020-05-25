@@ -90,7 +90,10 @@ func (self *WithoutBlockSyncMsgHandler) HandleSystemMessage(net p2p.P2P, msg p2p
 }
 
 func (self *WithoutBlockSyncMsgHandler) HandlePeerMessage(ctx *p2p.Context, msg msgTypes.Message) {
-	log4.Trace("[p2p]receive message", ctx.Sender().GetAddr(), ctx.Sender().GetID())
+	pid := ctx.Sender().GetID()
+	log4.Trace("[p2p-without block sync] receive message, type:%s, sender: %s, send pid: %s",
+		msg.CmdType(), ctx.Sender().GetAddr(), pid.ToHexString())
+
 	switch m := msg.(type) {
 	case *msgTypes.AddrReq:
 		self.discovery.AddrReqHandle(ctx)
