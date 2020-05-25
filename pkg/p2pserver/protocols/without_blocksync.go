@@ -34,7 +34,6 @@ import (
 )
 
 type WithoutBlockSyncMsgHandler struct {
-	msgcount                 map[string]uint
 	reconnect                *reconnect.ReconnectService
 	discovery                *discovery.Discovery
 	heatBeat                 *heatbeat.HeartBeat
@@ -47,7 +46,6 @@ func NewWithoutBlockSyncMsgHandler() *WithoutBlockSyncMsgHandler {
 }
 
 func (self *WithoutBlockSyncMsgHandler) start(net p2p.P2P) {
-	self.msgcount = make(map[string]uint)
 	self.reconnect = reconnect.NewReconectService(net)
 	self.discovery = discovery.NewDiscovery(net, config.DefConfig.P2PNode.ReservedCfg.MaskPeers, 0)
 	seeds := config.DefConfig.Genesis.SeedList
@@ -110,7 +108,6 @@ func (self *WithoutBlockSyncMsgHandler) HandlePeerMessage(ctx *p2p.Context, msg 
 	case *msgTypes.Consensus:
 		ConsensusHandle(ctx, m)
 	case *msgTypes.Trn:
-		self.msgcount[m.CmdType()] += 1
 		TransactionHandle(ctx, m)
 	case *msgTypes.Addr:
 		self.discovery.AddrHandle(ctx, m)

@@ -24,10 +24,10 @@ func RunTxInfoHttpServer(srv *netserver.NetServer, port uint16) {
 
 func (s *TxInfoServer) HandleHttpServer(port uint16) {
 
-	http.HandleFunc("/stat/send/count", s.handleSendCount)
-	http.HandleFunc("/stat/send/dump", s.handleSendDump)
-	http.HandleFunc("/stat/recv/count", s.handleRecvCount)
-	http.HandleFunc("/stat/recv/dump", s.handleRecvDump)
+	http.HandleFunc("/stat/send", s.handleSendCount)
+	http.HandleFunc("/stat/recv", s.handleRecvCount)
+	//http.HandleFunc("/stat/send/dump", s.handleSendDump)
+	//http.HandleFunc("/stat/recv/dump", s.handleRecvDump)
 
 	addr := fmt.Sprintf(":%d", port)
 	if err := http.ListenAndServe(addr, nil); err != nil {
@@ -41,29 +41,29 @@ func (s *TxInfoServer) handleSendCount(w http.ResponseWriter, r *http.Request) {
 		errors(w, err)
 		return
 	}
-	hash, err := getParamsHash(r)
-	if err != nil {
-		errors(w, err)
-		return
-	}
-	count := st.SendMsgCount(hash)
-	result(w, fmt.Sprintf("%d", count))
+	//hash, err := getParamsHash(r)
+	//if err != nil {
+	//	errors(w, err)
+	//	return
+	//}
+	count := st.SendMsgCount()
+	result(w, count)
 }
 
-func (s *TxInfoServer) handleSendDump(w http.ResponseWriter, r *http.Request) {
-	st, err := s.svr.GetStat()
-	if err != nil {
-		errors(w, err)
-		return
-	}
-	hash, err := getParamsHash(r)
-	if err != nil {
-		errors(w, err)
-		return
-	}
-	list := st.DumpSendPeerMsgCountList(hash)
-	result(w, list)
-}
+//func (s *TxInfoServer) handleSendDump(w http.ResponseWriter, r *http.Request) {
+//	st, err := s.svr.GetStat()
+//	if err != nil {
+//		errors(w, err)
+//		return
+//	}
+//	hash, err := getParamsHash(r)
+//	if err != nil {
+//		errors(w, err)
+//		return
+//	}
+//	list := st.DumpSendPeerMsgCountList(hash)
+//	result(w, list)
+//}
 
 func (s *TxInfoServer) handleRecvCount(w http.ResponseWriter, r *http.Request) {
 	st, err := s.svr.GetStat()
@@ -71,29 +71,29 @@ func (s *TxInfoServer) handleRecvCount(w http.ResponseWriter, r *http.Request) {
 		errors(w, err)
 		return
 	}
-	hash, err := getParamsHash(r)
-	if err != nil {
-		errors(w, err)
-		return
-	}
-	count := st.RecvMsgCount(hash)
-	result(w, fmt.Sprintf("%d", count))
+	//hash, err := getParamsHash(r)
+	//if err != nil {
+	//	errors(w, err)
+	//	return
+	//}
+	count := st.RecvMsgCount()
+	result(w, count)
 }
 
-func (s *TxInfoServer) handleRecvDump(w http.ResponseWriter, r *http.Request) {
-	st, err := s.svr.GetStat()
-	if err != nil {
-		errors(w, err)
-		return
-	}
-	hash, err := getParamsHash(r)
-	if err != nil {
-		errors(w, err)
-		return
-	}
-	list := st.DumpSendPeerMsgCountList(hash)
-	result(w, list)
-}
+//func (s *TxInfoServer) handleRecvDump(w http.ResponseWriter, r *http.Request) {
+//	st, err := s.svr.GetStat()
+//	if err != nil {
+//		errors(w, err)
+//		return
+//	}
+//	hash, err := getParamsHash(r)
+//	if err != nil {
+//		errors(w, err)
+//		return
+//	}
+//	list := st.DumpSendPeerMsgCountList(hash)
+//	result(w, list)
+//}
 
 func getParamsHash(r *http.Request) (string, error) {
 	vs, ok := r.URL.Query()["hash"]

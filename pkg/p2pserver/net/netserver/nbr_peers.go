@@ -104,10 +104,10 @@ func (this *NbrPeers) Broadcast(msg types.Message) {
 	for _, node := range this.List {
 		if node.Peer.GetRelay() {
 			go node.Peer.SendRaw(msg.CmdType(), sink.Bytes())
-		}
 
-		if this.stat != nil {
-			this.stat.HandleSendMsg(node.Peer.GetID(), msg)
+			if this.stat != nil {
+				this.stat.HandleSendMsg(node.Peer.GetID(), msg)
+			}
 		}
 	}
 }

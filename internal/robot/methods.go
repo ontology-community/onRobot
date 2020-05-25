@@ -20,7 +20,6 @@ package robot
 
 import (
 	log4 "github.com/alecthomas/log4go"
-	"github.com/ontio/ontology/account"
 	ontcm "github.com/ontio/ontology/common"
 	"github.com/ontology-community/onRobot/internal/robot/conf"
 	"github.com/ontology-community/onRobot/pkg/files"
@@ -28,7 +27,6 @@ import (
 	"github.com/ontology-community/onRobot/pkg/p2pserver/handshake"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
 	pr "github.com/ontology-community/onRobot/pkg/p2pserver/params"
-	peer2 "github.com/ontology-community/onRobot/pkg/p2pserver/peer"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols"
 	"github.com/ontology-community/onRobot/pkg/sdk"
 	"math"
@@ -725,7 +723,6 @@ func TxCount() bool {
 		EndHttpPort   uint16
 		Remote        string
 		DestAccount   string
-		Amount        uint64
 		DispatchTime  int
 	}
 
@@ -734,166 +731,55 @@ func TxCount() bool {
 		return false
 	}
 
-	_hash, err := transferTwiceWithoutCheckBalance(params.Remote, params.DestAccount, params.Amount)
+	sendTicker := time.NewTicker(1 * time.Second)
+	statTicker := time.NewTicker(1 * time.Second)
+	dispatch := 0
+	stop := make(chan struct{})
+	stat := &statCount{send: 0, recv: 0}
+	list := make([][4]uint64, 0)
+
+	worker, err := NewInvalidTxWorker(params.Remote)
 	if err != nil {
 		_ = log4.Error("%s", err)
 		return false
 	}
-	hash := _hash.ToHexString()
+	go worker.Start()
 
-	Dispatch(params.DispatchTime)
+	go func() {
+		for {
+			select {
+			case <-sendTicker.C:
+				worker.dst <- params.DestAccount
+				dispatch += 1
+				if dispatch >= params.DispatchTime {
+					stop <- struct{}{}
+					worker.Stop()
+					return
+				}
+			}
+		}
+	}()
 
-	for _, ip := range params.IpList {
-		for p := params.StartHttpPort; p <= params.EndHttpPort; p++ {
-			// send count
-			res, err := httpRequestJson(ip, p, "/stat/send/count", "hash", hash)
-			if err != nil {
-				_ = log4.Error("[send/count] err:%s", err)
-				return false
-			}
-			if res.Succeed == false {
-				_ = log4.Error("[send/count] request error msg: %s", res.Err)
-				return false
-			}
-			log4.Info("[send/count] ip: %s:%d, hash: %s, data: %s", ip, p, hash, res.Data)
-
-			// send dump
-			res, err = httpRequestJson(ip, p, "/stat/send/dump", "hash", hash)
-			if err != nil {
-				_ = log4.Error("[send/dump] err:%s", err)
-				return false
-			}
-			if res.Succeed == false {
-				_ = log4.Error("[send/dump] request error msg: %s", res.Err)
-				return false
-			}
-			log4.Info("[send/dump] ip: %s:%d, hash: %s, data: %s", ip, p, hash, res.Data)
-
-			// recv count
-			res, err = httpRequestJson(ip, p, "/stat/recv/count", "hash", hash)
-			if err != nil {
-				_ = log4.Error("[recv/count] err:%s", err)
-				return false
-			}
-			if res.Succeed == false {
-				_ = log4.Error("[recv/count] request error msg: %s", res.Err)
-				return false
-			}
-			log4.Info("[recv/count] ip: %s:%d, hash: %s, data: %s", ip, p, hash, res.Data)
-
-			// recv dump
-			res, err = httpRequestJson(ip, p, "/stat/recv/dump", "hash", hash)
-			if err != nil {
-				_ = log4.Error("[recv/dump] err:%s", err)
-				return false
-			}
-			if res.Succeed == false {
-				_ = log4.Error("[recv/dump] request error msg: %s", res.Err)
-				return false
-			}
-			log4.Info("[recv/dump] ip: %s:%d, hash: %s, data: %s", ip, p, hash, res.Data)
+	var dumpList = func() {
+		for _, v := range list {
+			log4.Info("send amount %d, recv amount %d, total send amount %d, total recv amount %d", v[0], v[1], v[2], v[3])
 		}
 	}
 
-	return true
-}
+	for {
+		select {
+		case <-statTicker.C:
+			initSend, initRecv := stat.send, stat.recv
+			log4.Info("before stat, sendCount %d, recvCount %d", stat.send, stat.recv)
+			statMsgCount(params.IpList, params.StartHttpPort, params.EndHttpPort, stat)
+			//log4.Info("after stat, sendCount %d, recvCount %d", stat.send, stat.recv)
 
-func singleTransfer(remote, jsonrpc, dest string, amount uint64, expire int) error {
-	acc, err := sdk.RecoverAccount(conf.WalletPath, conf.DefConfig.WalletPwd)
-	if err != nil {
-		return err
+			sendAmount, recvAmount := stat.send-initSend, stat.recv-initRecv
+			list = append(list, [4]uint64{sendAmount, recvAmount, stat.send, stat.recv})
+
+		case <-stop:
+			dumpList()
+			return true
+		}
 	}
-	destAddr, err := sdk.AddressFromBase58(dest)
-	if err != nil {
-		return err
-	}
-	srcbfTx, err := sdk.GetBalance(jsonrpc, acc.Address)
-	if err != nil {
-		return err
-	}
-	dstbfTx, err := sdk.GetBalance(jsonrpc, destAddr)
-	if err != nil {
-		return err
-	}
-
-	tran, err := GenerateTransferOntTx(acc, dest, amount)
-	if err != nil {
-		return err
-	}
-	hash := tran.Txn.Hash()
-
-	protocol := protocols.NewOnlyHeartbeatMsgHandler()
-	ns := GenerateNetServerWithProtocol(protocol)
-	peer, err := ns.ConnectAndReturnPeer(remote)
-	if err != nil {
-		return err
-	}
-	if err := peer.Send(tran); err != nil {
-		return err
-	}
-
-	Dispatch(expire)
-	srcafTx, err := sdk.GetBalance(jsonrpc, acc.Address)
-	if err != nil {
-		return err
-	}
-	dstafTx, err := sdk.GetBalance(jsonrpc, destAddr)
-	if err != nil {
-		return err
-	}
-
-	tx, err := sdk.GetTxByHash(jsonrpc, hash)
-	if err == nil {
-		hash1 := tx.Hash()
-		log4.Debug("===== node %s, origin tx %s, succeed tx %s", jsonrpc, hash.ToHexString(), hash1.ToHexString())
-	} else {
-		_ = log4.Error("===== node %s, origin tx %s failed", jsonrpc, hash.ToHexString())
-	}
-
-	log4.Info("===== src address %s, dst address %s", acc.Address.ToBase58(), dest)
-	log4.Info("===== before transfer, src %s, dst %s, ", srcbfTx.Ont, dstbfTx.Ont)
-	log4.Info("===== after transfer, src %s, dst %s, ", srcafTx.Ont, dstafTx.Ont)
-
-	return nil
-}
-
-func transferTwiceWithoutCheckBalance(remote, dest string, amount uint64) (hash ontcm.Uint256, err error) {
-	var (
-		acc  *account.Account
-		tran *types.Trn
-		peer *peer2.Peer
-	)
-
-	if acc, err = sdk.RecoverAccount(conf.WalletPath, conf.DefConfig.WalletPwd); err != nil {
-		return
-	}
-
-	if tran, err = GenerateTransferOntTx(acc, dest, amount); err != nil {
-		return
-	}
-
-	hash = tran.Txn.Hash()
-
-	protocol := protocols.NewOnlyHeartbeatMsgHandler()
-	ns := GenerateNetServerWithProtocol(protocol)
-	if peer, err = ns.ConnectAndReturnPeer(remote); err != nil {
-		return
-	}
-
-	// send dump tx
-	if err = peer.Send(tran); err != nil {
-		return
-	} else {
-		log4.Info("send tx %s first time", hash.ToHexString())
-	}
-
-	time.Sleep(2 * time.Second)
-
-	if err = peer.Send(tran); err != nil {
-		return
-	} else {
-		log4.Info("send tx %s second time", hash.ToHexString())
-	}
-
-	return
 }

@@ -87,14 +87,14 @@ func NewNetServerWithTxStat(protocol p2p.Protocol, conf *config.P2PNodeConfig) (
 	n := &NetServer{
 		NetChan:    make(chan *types.MsgPayload, common.CHAN_CAPABILITY),
 		base:       &peer.PeerInfo{},
-		Np:         NewNbrPeers(),
 		protocol:   protocol,
 		stopRecvCh: make(chan bool),
 		stat:       st.NewMsgStat(),
 	}
 
-	err := n.init(conf)
-	if err != nil {
+	n.Np = NewNbrPeersWithTxStat(n.stat)
+
+	if err := n.init(conf); err != nil {
 		return nil, err
 	}
 	return n, nil

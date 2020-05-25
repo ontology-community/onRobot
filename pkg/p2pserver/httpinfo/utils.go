@@ -21,7 +21,7 @@ func errors(w http.ResponseWriter, err error) {
 	_, _ = fmt.Fprintf(w, string(bz))
 }
 
-func result(w http.ResponseWriter, data string) {
+func result(w http.ResponseWriter, data interface{}) {
 	bz, _ := json.Marshal(&Resp{
 		Err:     "",
 		Succeed: true,
@@ -31,7 +31,7 @@ func result(w http.ResponseWriter, data string) {
 }
 
 type Resp struct {
-	Err     string `json:"err"`
-	Succeed bool   `json:"succeed"`
-	Data    string `json:"data"`
+	Err     string      `json:"err"`
+	Succeed bool        `json:"succeed"`
+	Data    interface{} `json:"data"`
 }

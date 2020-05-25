@@ -15,7 +15,6 @@ import (
 	"github.com/ontology-community/onRobot/pkg/txnpool/proc"
 )
 
-// todo(fukun):
 func NewNode() {
 	events.Init()
 	tp, err := initTxPool()

@@ -37,6 +37,7 @@ import (
 	"github.com/ontology-community/onRobot/pkg/sdk"
 	"io"
 	"io/ioutil"
+	"math"
 	"math/rand"
 	"net/http"
 	"sync"
@@ -282,24 +283,37 @@ func Dispatch(sec int) {
 	time.Sleep(expire)
 }
 
-func httpRequestJson(ip string, port uint16, method string, params string, value string) (*httpinfo.Resp, error) {
-	url := fmt.Sprintf("http://%s:%d%s?%s=%s", ip, port, method, params, value)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
+func getStatResult(ip string, port uint16, method string) (count uint64, err error) {
+	var (
+		req  *http.Request
+		resp *http.Response
+		res  = &httpinfo.Resp{}
+		num  float64
+		ok   bool
+	)
+
+	url := fmt.Sprintf("http://%s:%d%s", ip, port, method)
+	if req, err = http.NewRequest("GET", url, nil); err != nil {
+		return
 	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
+	if resp, err = http.DefaultClient.Do(req); err != nil {
+		return
 	}
 	defer resp.Body.Close()
-
-	var res = &httpinfo.Resp{}
-	if err := parseResponse(resp.Body, res); err != nil {
-		return nil, err
+	if err = parseResponse(resp.Body, res); err != nil {
+		return
 	}
 
-	return res, nil
+	if res.Succeed == false {
+		err = fmt.Errorf("%s", res.Err)
+		return
+	}
+	if num, ok = res.Data.(float64); !ok {
+		err = fmt.Errorf("stat count type invalid")
+		return
+	}
+	count = uint64(num)
+	return
 }
 
 func parseResponse(body io.Reader, res interface{}) error {
@@ -312,6 +326,151 @@ func parseResponse(body io.Reader, res interface{}) error {
 	if err != nil {
 		return fmt.Errorf("json.Unmarshal RestfulResp:%s error:%s", body, err)
 	}
+
+	return nil
+}
+
+type invalidTxWorker struct {
+	pr   *peer.Peer
+	acc  *account.Account
+	dst  chan string
+	stop chan struct{}
+}
+
+func NewInvalidTxWorker(remote string) (*invalidTxWorker, error) {
+	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	ns := GenerateNetServerWithProtocol(protocol)
+	pr, err := ns.ConnectAndReturnPeer(remote)
+	if err != nil {
+		return nil, err
+	}
+	acc, err := sdk.RecoverAccount(conf.WalletPath, conf.DefConfig.WalletPwd)
+	if err != nil {
+		return nil, err
+	}
+	return &invalidTxWorker{
+		pr:   pr,
+		acc:  acc,
+		stop: make(chan struct{}),
+		dst:  make(chan string),
+	}, nil
+}
+
+func (w *invalidTxWorker) Start() {
+	for {
+		select {
+		case dst := <-w.dst:
+			if err := w.sendInvalidTxWithoutCheckBalance(dst); err != nil {
+				_ = log4.Error("%s", err)
+			}
+		case <-w.stop:
+			return
+		}
+	}
+}
+
+func (w *invalidTxWorker) Stop() {
+	close(w.stop)
+}
+
+func (w *invalidTxWorker) sendInvalidTxWithoutCheckBalance(dest string) (err error) {
+	var (
+		tran   *types.Trn
+		amount uint64 = math.MaxUint64
+	)
+
+	if tran, err = GenerateTransferOntTx(w.acc, dest, amount); err != nil {
+		return
+	}
+
+	// send dump tx
+	err = w.pr.Send(tran)
+	return
+}
+
+type statCount struct {
+	send uint64
+	recv uint64
+}
+
+func statMsgCount(iplist []string, startHttpPort, endHttpPort uint16, stat *statCount) {
+	log4.Debug("init sendCount:%d, recvCount:%d", stat.send, stat.recv)
+
+	for _, ip := range iplist {
+		for p := startHttpPort; p <= endHttpPort; p++ {
+			count, err := getStatResult(ip, p, "/stat/send")
+			if err != nil {
+				_ = log4.Error("[send/count] err:%s", err)
+			} else {
+				stat.send = count
+			}
+
+			count, err = getStatResult(ip, p, "/stat/recv")
+			if err != nil {
+				_ = log4.Error("[recv/count] err:%s", err)
+			} else {
+
+				stat.recv = count
+			}
+		}
+	}
+}
+
+func singleTransfer(remote, jsonrpc, dest string, amount uint64, expire int) error {
+	acc, err := sdk.RecoverAccount(conf.WalletPath, conf.DefConfig.WalletPwd)
+	if err != nil {
+		return err
+	}
+	destAddr, err := sdk.AddressFromBase58(dest)
+	if err != nil {
+		return err
+	}
+	srcbfTx, err := sdk.GetBalance(jsonrpc, acc.Address)
+	if err != nil {
+		return err
+	}
+	dstbfTx, err := sdk.GetBalance(jsonrpc, destAddr)
+	if err != nil {
+		return err
+	}
+
+	tran, err := GenerateTransferOntTx(acc, dest, amount)
+	if err != nil {
+		return err
+	}
+	hash := tran.Txn.Hash()
+
+	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	ns := GenerateNetServerWithProtocol(protocol)
+	pr, err := ns.ConnectAndReturnPeer(remote)
+	if err != nil {
+		return err
+	}
+	if err := pr.Send(tran); err != nil {
+		return err
+	}
+
+	Dispatch(expire)
+	srcafTx, err := sdk.GetBalance(jsonrpc, acc.Address)
+	if err != nil {
+		return err
+	}
+	dstafTx, err := sdk.GetBalance(jsonrpc, destAddr)
+	if err != nil {
+		return err
+	}
+
+	tx, err := sdk.GetTxByHash(jsonrpc, hash)
+	if err == nil {
+		hash1 := tx.Hash()
+		log4.Debug("===== node %s, origin tx %s, succeed tx %s", jsonrpc, hash.ToHexString(), hash1.ToHexString())
+	} else {
+		_ = log4.Error("===== node %s, origin tx %s failed", jsonrpc, hash.ToHexString())
+	}
+
+	log4.Info("===== src address %s, dst address %s", acc.Address.ToBase58(), dest)
+	log4.Info("===== before transfer, src %s, dst %s, ", srcbfTx.Ont, dstbfTx.Ont)
+	log4.Info("===== after transfer, src %s, dst %s, ", srcafTx.Ont, dstafTx.Ont)
 
 	return nil
 }

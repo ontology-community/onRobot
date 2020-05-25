@@ -22,6 +22,7 @@ package proc
 
 import (
 	"fmt"
+	log4 "github.com/alecthomas/log4go"
 	"github.com/ontio/ontology-eventbus/actor"
 	"github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/core/types"
@@ -32,7 +33,7 @@ import (
 
 // TXPoolServer contains all api to external modules
 type TXPoolServer struct {
-	mu     *sync.RWMutex
+	mu     *sync.Mutex
 	txPool map[common.Uint256]*types.Transaction
 	actor  *actor.PID // The actors running in the server
 	Net    p2p.P2P
@@ -42,7 +43,7 @@ type TXPoolServer struct {
 // handle and filter inbound transactions from the network, http, and consensus.
 func NewTxPoolServer() *TXPoolServer {
 	s := &TXPoolServer{}
-	s.mu = new(sync.RWMutex)
+	s.mu = new(sync.Mutex)
 	s.txPool = make(map[common.Uint256]*types.Transaction)
 	return s
 }
@@ -68,16 +69,13 @@ func (s *TXPoolServer) Stop() {
 }
 
 func (s *TXPoolServer) setTransaction(hash common.Uint256, tx *types.Transaction) error {
-	s.mu.RLock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	_, ok := s.txPool[hash]
-	s.mu.RUnlock()
 	if ok {
 		return fmt.Errorf("tx %s already exist", hash.ToHexString())
 	}
-
-	s.mu.Lock()
+	log4.Info("[----------------- recv and ready to broad cast message] %s", hash.ToHexString())
 	s.txPool[hash] = tx
-	s.mu.Unlock()
-
 	return nil
 }
