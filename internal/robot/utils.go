@@ -19,6 +19,7 @@
 package robot
 
 import (
+	"encoding/json"
 	"fmt"
 	log4 "github.com/alecthomas/log4go"
 	"github.com/ontio/ontology/account"
@@ -26,6 +27,7 @@ import (
 	onthttp "github.com/ontio/ontology/http/base/common"
 	"github.com/ontology-community/onRobot/internal/robot/conf"
 	p2pcm "github.com/ontology-community/onRobot/pkg/p2pserver/common"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/httpinfo"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/net/netserver"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
@@ -33,7 +35,10 @@ import (
 	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols"
 	"github.com/ontology-community/onRobot/pkg/sdk"
+	"io"
+	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"sync"
 	"time"
 )
@@ -275,4 +280,38 @@ func distance(local, target p2pcm.PeerId) int {
 func Dispatch(sec int) {
 	expire := time.Duration(sec) * time.Second
 	time.Sleep(expire)
+}
+
+func httpRequestJson(ip string, port uint16, method string, params string, value string) (*httpinfo.Resp, error) {
+	url := fmt.Sprintf("http://%s:%d%s?%s=%s", ip, port, method, params, value)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var res = &httpinfo.Resp{}
+	if err := parseResponse(resp.Body, res); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func parseResponse(body io.Reader, res interface{}) error {
+	data, err := ioutil.ReadAll(body)
+	if err != nil {
+		return fmt.Errorf("read http body error:%s", err)
+	}
+
+	err = json.Unmarshal(data, res)
+	if err != nil {
+		return fmt.Errorf("json.Unmarshal RestfulResp:%s error:%s", body, err)
+	}
+
+	return nil
 }

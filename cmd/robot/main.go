@@ -44,7 +44,7 @@ func init() {
 	flag.StringVar(&TestCaseConfig, "params", "params", "Test params")
 	flag.StringVar(&WalletConfig, "wallet", "wallet.dat", "Wallet path")
 	flag.StringVar(&TransferWalletConfig, "transfer", "transfer_wallet.dat", "Transfer wallet path")
-	flag.StringVar(&Methods, "t", "demo", "methods to run. use ',' to split methods")
+	flag.StringVar(&Methods, "t", "txCount", "methods to run. use ',' to split methods")
 	flag.Parse()
 }
 

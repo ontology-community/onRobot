@@ -49,6 +49,19 @@ func NewServer(protocol *protocols.MsgHandler, conf *config.P2PNodeConfig) (*P2P
 	return p, nil
 }
 
+func NewStatServer(protocol p2pnet.Protocol, conf *config.P2PNodeConfig) (*P2PServer, error) {
+	n, err := netserver.NewNetServerWithTxStat(protocol, conf)
+	if err != nil {
+		return nil, err
+	}
+
+	p := &P2PServer{
+		network: n,
+	}
+
+	return p, nil
+}
+
 //Start create all services
 func (this *P2PServer) Start() error {
 	return this.network.Start()

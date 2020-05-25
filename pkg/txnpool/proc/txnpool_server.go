@@ -139,6 +139,9 @@ func getGlobalGasPrice() (uint64, error) {
 
 // getGasPriceConfig returns the bigger one between global and cmd configured
 func getGasPriceConfig() uint64 {
+	// mark
+	return config.DefConfig.Common.GasPrice
+
 	globalGasPrice, err := getGlobalGasPrice()
 	if err != nil {
 		log4.Info(err)

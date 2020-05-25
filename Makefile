@@ -15,6 +15,13 @@ build-robot:
 
 build: build-robot
 
+build-node:
+	rm -rf target/
+	mkdir target
+	cp log4go.xml target/log4go.xml
+	cp cmd/p2pnode/config.json target/config.json
+	$(GOBUILD) -o target/node cmd/p2pnode/main.go
+
 robot:
 	@echo test case $(t)
 	./target/robot -config=target/config.json \
@@ -25,7 +32,11 @@ robot:
 	-t=$(t)
 
 node:
-	$(GOBUILD) -o node cmd/node/main.go
+	@echo httpinfoport p2pport $(httpinfoport) $(nodeport)
+	./target/node -config=target/config.json \
+	-log=target/log4go.xml \
+	-httpport=$(httpinfoport) \
+	-nodeport=$(nodeport)
 
 clean:
 	rm -rf target/

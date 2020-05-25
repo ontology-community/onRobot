@@ -25,9 +25,9 @@ import (
 )
 
 var (
-	Version       string
-	DefConfig     = NewDHTConfig()
-	ParamsFileDir string
+	Version   string
+	DefConfig = NewDHTConfig()
+	//ParamsFileDir string
 )
 
 type DHTConfig struct {
@@ -41,20 +41,20 @@ func NewDHTConfig() *DHTConfig {
 	return &DHTConfig{}
 }
 
-func (c *DHTConfig) Init(fileName string, nodePort, httpInfoPort uint16, paramsDir string) error {
+func (c *DHTConfig) Init(fileName string, nodePort, httpInfoPort uint) error {
 	err := files.LoadConfig(fileName, c)
 	if err != nil {
 		return fmt.Errorf("loadConfig error:%s", err)
 	}
 
-	c.Net.NodePort = nodePort
-	c.Net.HttpInfoPort = httpInfoPort
+	c.Net.NodePort = uint16(nodePort)
+	c.Net.HttpInfoPort = uint16(httpInfoPort)
 
 	cmf.DefConfig.P2PNode = c.Net
 	cmf.DefConfig.Genesis.SeedList = c.SeedList
 	cmf.DefConfig.Common.GasPrice = c.GasPrice
 	cmf.DefConfig.Common.GasLimit = c.GasLimit
 
-	ParamsFileDir = paramsDir
+	//ParamsFileDir = paramsDir
 	return nil
 }

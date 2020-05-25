@@ -45,4 +45,5 @@ func init() {
 	core.OntTool.RegMethod("attackTxPool", AttackTxPool)
 	core.OntTool.RegMethod("doubleSpend", DoubleSpend)
 	core.OntTool.RegMethod("transferOnt", TransferOnt)
+	core.OntTool.RegMethod("txCount", TxCount)
 }

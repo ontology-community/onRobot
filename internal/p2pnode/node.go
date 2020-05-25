@@ -3,6 +3,7 @@ package p2pnode
 import (
 	"fmt"
 	log4 "github.com/alecthomas/log4go"
+	"github.com/ontio/ontology/events"
 	bactor "github.com/ontio/ontology/http/base/actor"
 	hserver "github.com/ontio/ontology/http/base/actor"
 	"github.com/ontio/ontology/validator/stateful"
@@ -27,18 +28,19 @@ const (
 
 // todo(fukun):
 func NewNode() {
+	events.Init()
 	tp, err := initTxPool()
 	if err != nil {
 		log4.Crash(err)
 	}
 	msghandler := initProtocol()
 
-	p2p, err := initP2PNode(tp)
+	p2p, err := initP2PNode(tp, msghandler)
 	if err != nil {
 		log4.Crash(err)
 	}
 	ns := p2p.GetNetwork().(*netserver.NetServer)
-	httpinfo.RunTxInfoHttpServer(ns, 12)
+	httpinfo.RunTxInfoHttpServer(ns, conf.DefConfig.Net.HttpInfoPort)
 }
 
 func initTxPool() (*proc.TXPoolServer, error) {
@@ -62,22 +64,21 @@ func initTxPool() (*proc.TXPoolServer, error) {
 }
 
 func initProtocol() p2p.Protocol {
-	return protocols.NewOnlyHeartbeatMsgHandler()
+	return protocols.NewWithoutBlockSyncMsgHandler()
 }
 
-func initP2PNode(txpoolSvr *proc.TXPoolServer, handler protocols.MsgHandler) (*p2pserver.P2PServer, error) {
-	p2p, err := p2pserver.NewServer(handler, conf.DefConfig.Net)
+func initP2PNode(txpoolSvr *proc.TXPoolServer, handler p2p.Protocol) (*p2pserver.P2PServer, error) {
+	p2p, err := p2pserver.NewStatServer(handler, conf.DefConfig.Net)
 	if err != nil {
 		return nil, err
 	}
-
-	err = p2p.Start()
-	if err != nil {
+	if err := p2p.Start(); err != nil {
 		return nil, fmt.Errorf("p2p service start error %s", err)
 	}
+
 	netreqactor.SetTxnPoolPid(txpoolSvr.GetPID(tc.TxActor))
 	txpoolSvr.Net = p2p.GetNetwork()
-	hserver.SetNetServer(p2p.GetNetwork())
+	// hserver.SetNetServer(p2p.GetNetwork())
 	p2p.WaitForPeersStart()
 	log4.Info("P2P init success")
 	return p2p, nil

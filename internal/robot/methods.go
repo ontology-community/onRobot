@@ -20,6 +20,7 @@ package robot
 
 import (
 	log4 "github.com/alecthomas/log4go"
+	"github.com/ontio/ontology/account"
 	ontcm "github.com/ontio/ontology/common"
 	"github.com/ontology-community/onRobot/internal/robot/conf"
 	"github.com/ontology-community/onRobot/pkg/files"
@@ -27,6 +28,7 @@ import (
 	"github.com/ontology-community/onRobot/pkg/p2pserver/handshake"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
 	pr "github.com/ontology-community/onRobot/pkg/p2pserver/params"
+	peer2 "github.com/ontology-community/onRobot/pkg/p2pserver/peer"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols"
 	"github.com/ontology-community/onRobot/pkg/sdk"
 	"math"
@@ -716,6 +718,91 @@ func TransferOnt() bool {
 	return true
 }
 
+func TxCount() bool {
+	var params struct {
+		IpList        []string
+		StartHttpPort uint16
+		EndHttpPort   uint16
+		Remote        string
+		DestAccount   string
+		Amount        uint64
+		DispatchTime  int
+	}
+
+	if err := files.LoadParams(conf.ParamsFileDir, "TxCount.json", &params); err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+
+	_hash, err := transferWithoutCheckBalance(params.Remote, params.DestAccount, params.Amount)
+	if err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+
+	Dispatch(params.DispatchTime)
+	hash := _hash.ToHexString()
+	for _, ip := range params.IpList {
+		/*
+			http.HandleFunc("/stat/send/count", s.handleSendCount)
+			http.HandleFunc("/stat/send/dump", s.handleSendDump)
+			http.HandleFunc("/stat/recv/count", s.handleRecvCount)
+			http.HandleFunc("/stat/recv/dump", s.handleRecvDump)
+		*/
+		for p := params.StartHttpPort; p <= params.EndHttpPort; p++ {
+			// send count
+			res, err := httpRequestJson(ip, p, "/stat/send/count", "hash", hash)
+			if err != nil {
+				_ = log4.Error("[send/count] err:%s", err)
+				return false
+			}
+			if res.Succeed == false {
+				_ = log4.Error("[send/count] request error msg: %s", res.Err)
+				return false
+			}
+			log4.Info("[send/count] ip: %s:%d, hash: %s, data: %s", ip, p, hash, res.Data)
+
+			// send dump
+			res, err = httpRequestJson(ip, p, "/stat/send/dump", "hash", hash)
+			if err != nil {
+				_ = log4.Error("[send/dump] err:%s", err)
+				return false
+			}
+			if res.Succeed == false {
+				_ = log4.Error("[send/dump] request error msg: %s", res.Err)
+				return false
+			}
+			log4.Info("[send/dump] ip: %s:%d, hash: %s, data: %s", ip, p, hash, res.Data)
+
+			// recv count
+			res, err = httpRequestJson(ip, p, "/stat/recv/count", "hash", hash)
+			if err != nil {
+				_ = log4.Error("[recv/count] err:%s", err)
+				return false
+			}
+			if res.Succeed == false {
+				_ = log4.Error("[recv/count] request error msg: %s", res.Err)
+				return false
+			}
+			log4.Info("[recv/count] ip: %s:%d, hash: %s, data: %s", ip, p, hash, res.Data)
+
+			// recv dump
+			res, err = httpRequestJson(ip, p, "/stat/recv/dump", "hash", hash)
+			if err != nil {
+				_ = log4.Error("[recv/dump] err:%s", err)
+				return false
+			}
+			if res.Succeed == false {
+				_ = log4.Error("[recv/dump] request error msg: %s", res.Err)
+				return false
+			}
+			log4.Info("[recv/dump] ip: %s:%d, hash: %s, data: %s", ip, p, hash, res.Data)
+		}
+	}
+
+	return true
+}
+
 func singleTransfer(remote, jsonrpc, dest string, amount uint64, expire int) error {
 	acc, err := sdk.RecoverAccount(conf.WalletPath, conf.DefConfig.WalletPwd)
 	if err != nil {
@@ -773,4 +860,31 @@ func singleTransfer(remote, jsonrpc, dest string, amount uint64, expire int) err
 	log4.Info("===== after transfer, src %s, dst %s, ", srcafTx.Ont, dstafTx.Ont)
 
 	return nil
+}
+
+func transferWithoutCheckBalance(remote, dest string, amount uint64) (hash ontcm.Uint256, err error) {
+	var (
+		acc  *account.Account
+		tran *types.Trn
+		peer *peer2.Peer
+	)
+
+	if acc, err = sdk.RecoverAccount(conf.WalletPath, conf.DefConfig.WalletPwd); err != nil {
+		return
+	}
+
+	if tran, err = GenerateTransferOntTx(acc, dest, amount); err != nil {
+		return
+	}
+
+	hash = tran.Txn.Hash()
+
+	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	ns := GenerateNetServerWithProtocol(protocol)
+	if peer, err = ns.ConnectAndReturnPeer(remote); err != nil {
+		return
+	}
+
+	err = peer.Send(tran)
+	return
 }
