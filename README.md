@@ -383,7 +383,7 @@ b、txCount测试用例配置参数
 因为需要用到多台机器，多个端口构造尽可能多的轻节点，这里我们提供了一个ip列表，
 StartHttpPort到EndHttpPort都对应某个ip下的轻节点统计服务。
 remote是某个节点的p2p地址，
-DestAmount用于构造一笔交易(统计tx时，测试用例构造并发送Tx，该tx为一笔无法完成的转账)，
+DestAccount用于构造一笔交易(统计tx时，测试用例构造并发送Tx，该tx为一笔无法完成的转账)，
 DispatchTime表示测试用例持续时间，单位为sec，测试用例每秒发送一笔交易并查询一次统计数据.
 结果:
 以6个节点，持续10s为例
