@@ -516,8 +516,8 @@ func AttackTxPool() bool {
 	idx := 0
 	num := params.TxNum / len(peers)
 	for i := 0; i < num; i++ {
-		for _, pr := range peers {
-			if err := pr.Send(transList[idx]); err != nil {
+		for _, peer := range peers {
+			if err := peer.Send(transList[idx]); err != nil {
 				_ = log4.Warn("%s", err)
 			}
 			idx++
