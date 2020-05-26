@@ -1,7 +1,5 @@
 module github.com/ontology-community/onRobot
 
-go 1.12
-
 require (
 	github.com/alecthomas/log4go v0.0.0-20180109082532-d146e6b86faa
 	github.com/blang/semver v3.5.1+incompatible
@@ -12,3 +10,5 @@ require (
 	github.com/scylladb/go-set v1.0.2
 	github.com/stretchr/testify v1.4.0
 )
+
+go 1.13
