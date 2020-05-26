@@ -22,7 +22,6 @@ package proc
 
 import (
 	"fmt"
-	log4 "github.com/alecthomas/log4go"
 	"github.com/ontio/ontology-eventbus/actor"
 	"github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/core/types"
@@ -75,7 +74,6 @@ func (s *TXPoolServer) setTransaction(hash common.Uint256, tx *types.Transaction
 	if ok {
 		return fmt.Errorf("tx %s already exist", hash.ToHexString())
 	}
-	log4.Info("[----------------- recv and ready to broad cast message] %s", hash.ToHexString())
 	s.txPool[hash] = tx
 	return nil
 }

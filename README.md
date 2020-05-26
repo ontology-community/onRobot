@@ -57,6 +57,7 @@ askFakeBlocks                       // 伪造blockHeader请求同步
 attackTxPool                        // 交易池攻击
 transferOnt                         // ont转账
 doubleSpend                         // 双花攻击
+txCount                             // 测试p2p轻节点消息转发数量
 ```
 
 ## 测试条件及结果预期
@@ -320,4 +321,81 @@ a、单个恶意节点，对多个目标seed节点发送连续的4笔交易，�
 结果:
 a、目标seed节点交易池能实时查到这几笔交易
 b、测试前后查询余额账户，只转出一笔
+```
+
+#### 14.txCount
+```dtd
+条件:
+a、使用make build-node构建轻节点，根据命令行参数运行多个节点, 如:
+./node -config=config.json -log=log4go.xml -httpport=10032 -nodeport=20032
+其中httpport用于访问统计数据，nodeport为p2p端口.
+参数:
+a、node配置:
+{
+  "GasPrice":0,
+  "GasLimit":20000,
+  "Net":{
+    "ReservedPeersOnly":false,
+    "ReservedCfg":{
+      "reserved":[
+        "1.2.3.4",
+        "1.2.3.5"
+      ],
+      "mask":[
+        "172.168.3.151",
+        "172.168.3.152",
+        "172.168.3.153",
+        "172.168.3.154",
+        "172.168.3.155",
+        "172.168.3.156",
+        "172.168.3.157"
+      ]
+    },
+    "NetworkMagic":299,
+    "NetworkId":299,
+    "NetworkName":"",
+    "IsTLS":false,
+    "MaxHdrSyncReqs":1024,
+    "MaxConnInBound":1024,
+    "MaxConnOutBound":1024,
+    "MaxConnInBoundForSingleIP":1024
+  },
+  "SeedList": [
+    "127.0.0.1:20031",
+    "127.0.0.1:20032",
+    "127.0.0.1:20033",
+    "127.0.0.1:20034",
+    "127.0.0.1:20035",
+    "127.0.0.1:20036"
+  ]
+}
+b、txCount测试用例配置参数
+{
+  "IpList": [
+    "127.0.0.1"
+  ],
+  "StartHttpPort": 10031,
+  "EndHttpPort": 10036,
+  "Remote": "127.0.0.1:20031",
+  "DestAccount": "AWoQ8oFXXz9EwGBTP2mncqe5ngr1VnKagZ",
+  "DispatchTime": 10
+}
+因为需要用到多台机器，多个端口构造尽可能多的轻节点，这里我们提供了一个ip列表，
+StartHttpPort到EndHttpPort都对应某个ip下的轻节点统计服务。
+remote是某个节点的p2p地址，
+DestAmount用于构造一笔交易(统计tx时，测试用例构造并发送Tx，该tx为一笔无法完成的转账)，
+DispatchTime表示测试用例持续时间，单位为sec，测试用例每秒发送一笔交易并查询一次统计数据.
+结果:
+以6个节点，持续10s为例
+[2020/05/26 10:10:06 CST] [INFO] send amount 5, recv amount 5
+[2020/05/26 10:10:06 CST] [INFO] send amount 5, recv amount 5
+[2020/05/26 10:10:06 CST] [INFO] send amount 5, recv amount 5
+[2020/05/26 10:10:06 CST] [INFO] send amount 5, recv amount 5
+[2020/05/26 10:10:06 CST] [INFO] send amount 6, recv amount 5
+[2020/05/26 10:10:06 CST] [INFO] send amount 6, recv amount 5
+[2020/05/26 10:10:06 CST] [INFO] send amount 6, recv amount 5
+[2020/05/26 10:10:06 CST] [INFO] send amount 6, recv amount 5
+[2020/05/26 10:10:06 CST] [INFO] send amount 6, recv amount 5
+[2020/05/26 10:10:06 CST] [INFO] average send amount 5.555556, average recv amount 5.000000, total send amount 55, total recv amount 50
+整个网络总共发送了55次tx，接收了50次，平均每秒发送5.555556比交易，接收5比交易
 ```

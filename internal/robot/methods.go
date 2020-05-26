@@ -761,9 +761,16 @@ func TxCount() bool {
 	}()
 
 	var dumpList = func() {
+		totalSend, totalRecv := uint64(0), uint64(0)
 		for _, v := range list {
-			log4.Info("send amount %d, recv amount %d, total send amount %d, total recv amount %d", v[0], v[1], v[2], v[3])
+			log4.Info("send amount %d, recv amount %d", v[0], v[1])
+			totalSend += v[0]
+			totalRecv += v[1]
 		}
+		avSend := float64(totalSend) / float64(len(list))
+		avRecv := float64(totalRecv) / float64(len(list))
+		log4.Info("average send amount %f, average recv amount %f, total send amount %d, total recv amount %d",
+			avSend, avRecv, stat.send, stat.recv)
 	}
 
 	for {
@@ -772,10 +779,10 @@ func TxCount() bool {
 			initSend, initRecv := stat.send, stat.recv
 			log4.Info("before stat, sendCount %d, recvCount %d", stat.send, stat.recv)
 			statMsgCount(params.IpList, params.StartHttpPort, params.EndHttpPort, stat)
-			//log4.Info("after stat, sendCount %d, recvCount %d", stat.send, stat.recv)
-
-			sendAmount, recvAmount := stat.send-initSend, stat.recv-initRecv
-			list = append(list, [4]uint64{sendAmount, recvAmount, stat.send, stat.recv})
+			if initSend > 0 && initRecv > 0 {
+				sendAmount, recvAmount := stat.send-initSend, stat.recv-initRecv
+				list = append(list, [4]uint64{sendAmount, recvAmount, stat.send, stat.recv})
+			}
 
 		case <-stop:
 			dumpList()
