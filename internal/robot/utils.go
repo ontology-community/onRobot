@@ -286,44 +286,61 @@ func Dispatch(sec int) {
 type statCount struct {
 	send uint64
 	recv uint64
+	mu   *sync.Mutex
 }
 
-func statMsgCount(iplist []string, startHttpPort, endHttpPort uint16, stat *statCount) {
+type httpClient struct {
+	cli *http.Client
+}
+
+func NewHttpClient() *httpClient {
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+	return &httpClient{
+		cli: client,
+	}
+}
+
+func (c *httpClient) statMsgCount(iplist []string, startHttpPort, endHttpPort uint16, stat *statCount) {
 	log4.Debug("init sendCount:%d, recvCount:%d", stat.send, stat.recv)
 
 	for _, ip := range iplist {
 		for p := startHttpPort; p <= endHttpPort; p++ {
-			count, err := getStatResult(ip, p, "/stat/send")
+			count, err := c.getStatResult(ip, p, "/stat/send")
 			if err != nil {
 				_ = log4.Error("[send/count] err:%s", err)
 			} else {
+				stat.mu.Lock()
 				stat.send = count
+				stat.mu.Unlock()
 			}
 
-			count, err = getStatResult(ip, p, "/stat/recv")
+			count, err = c.getStatResult(ip, p, "/stat/recv")
 			if err != nil {
 				_ = log4.Error("[recv/count] err:%s", err)
 			} else {
-
+				stat.mu.Lock()
 				stat.recv = count
+				stat.mu.Unlock()
 			}
 		}
 	}
 }
 
-func clearMsgCount(iplist []string, startHttpPort, endHttpPort uint16) {
+func (c *httpClient) clearMsgCount(iplist []string, startHttpPort, endHttpPort uint16) {
 	log4.Debug("clear msg stat")
 
 	for _, ip := range iplist {
 		for p := startHttpPort; p <= endHttpPort; p++ {
-			if err := getClearResult(ip, p, "/stat/clear"); err != nil {
+			if err := c.getClearResult(ip, p, "/stat/clear"); err != nil {
 				_ = log4.Error("[send/count] err:%s", err)
 			}
 		}
 	}
 }
 
-func getStatResult(ip string, port uint16, method string) (count uint64, err error) {
+func (c *httpClient) getStatResult(ip string, port uint16, method string) (count uint64, err error) {
 	var (
 		req  *http.Request
 		resp *http.Response
@@ -336,7 +353,7 @@ func getStatResult(ip string, port uint16, method string) (count uint64, err err
 	if req, err = http.NewRequest("GET", url, nil); err != nil {
 		return
 	}
-	if resp, err = http.DefaultClient.Do(req); err != nil {
+	if resp, err = c.cli.Do(req); err != nil {
 		return
 	}
 	defer resp.Body.Close()
@@ -356,7 +373,7 @@ func getStatResult(ip string, port uint16, method string) (count uint64, err err
 	return
 }
 
-func getClearResult(ip string, port uint16, method string) (err error) {
+func (c *httpClient) getClearResult(ip string, port uint16, method string) (err error) {
 	var (
 		req  *http.Request
 		resp *http.Response
@@ -367,7 +384,7 @@ func getClearResult(ip string, port uint16, method string) (err error) {
 	if req, err = http.NewRequest("GET", url, nil); err != nil {
 		return
 	}
-	if resp, err = http.DefaultClient.Do(req); err != nil {
+	if resp, err = c.cli.Do(req); err != nil {
 		return
 	}
 	defer resp.Body.Close()

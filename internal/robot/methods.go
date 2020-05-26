@@ -33,6 +33,7 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -724,6 +725,7 @@ func TxCount() bool {
 		Remote        string
 		DestAccount   string
 		DispatchTime  int
+		Ticker        int
 	}
 
 	if err := files.LoadParams(conf.ParamsFileDir, "TxCount.json", &params); err != nil {
@@ -731,12 +733,16 @@ func TxCount() bool {
 		return false
 	}
 
-	sendTicker := time.NewTicker(1 * time.Second)
-	statTicker := time.NewTicker(1 * time.Second)
+	sendTicker := time.NewTicker(time.Duration(params.Ticker) * time.Second)
+	statTicker := time.NewTicker(time.Duration(params.Ticker) * time.Second)
 	dispatch := 0
 	stop := make(chan struct{})
-	stat := &statCount{send: 0, recv: 0}
+	stat := &statCount{send: 0, recv: 0, mu: new(sync.Mutex)}
 	list := make([][4]uint64, 0)
+
+	// clear past stat data
+	cli := NewHttpClient()
+	cli.clearMsgCount(params.IpList, params.StartHttpPort, params.EndHttpPort)
 
 	worker, err := NewInvalidTxWorker(params.Remote)
 	if err != nil {
@@ -773,24 +779,17 @@ func TxCount() bool {
 			avSend, avRecv, stat.send, stat.recv)
 	}
 
-	var clearStat = func() {
-		clearMsgCount(params.IpList, params.StartHttpPort, params.EndHttpPort)
-	}
-
 	for {
 		select {
 		case <-statTicker.C:
 			initSend, initRecv := stat.send, stat.recv
 			log4.Info("before stat, sendCount %d, recvCount %d", stat.send, stat.recv)
-			statMsgCount(params.IpList, params.StartHttpPort, params.EndHttpPort, stat)
-			if initSend > 0 && initRecv > 0 {
-				sendAmount, recvAmount := stat.send-initSend, stat.recv-initRecv
-				list = append(list, [4]uint64{sendAmount, recvAmount, stat.send, stat.recv})
-			}
+			cli.statMsgCount(params.IpList, params.StartHttpPort, params.EndHttpPort, stat)
+			sendAmount, recvAmount := stat.send-initSend, stat.recv-initRecv
+			list = append(list, [4]uint64{sendAmount, recvAmount, stat.send, stat.recv})
 
 		case <-stop:
 			dumpList()
-			clearStat()
 			return true
 		}
 	}
