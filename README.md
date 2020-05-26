@@ -387,15 +387,30 @@ DestAccount用于构造一笔交易(统计tx时，测试用例构造并发送Tx�
 DispatchTime表示测试用例持续时间，单位为sec，测试用例每秒发送一笔交易并查询一次统计数据.
 结果:
 以6个节点，持续10s为例
-[2020/05/26 10:10:06 CST] [INFO] send amount 5, recv amount 5
-[2020/05/26 10:10:06 CST] [INFO] send amount 5, recv amount 5
-[2020/05/26 10:10:06 CST] [INFO] send amount 5, recv amount 5
-[2020/05/26 10:10:06 CST] [INFO] send amount 5, recv amount 5
-[2020/05/26 10:10:06 CST] [INFO] send amount 6, recv amount 5
-[2020/05/26 10:10:06 CST] [INFO] send amount 6, recv amount 5
-[2020/05/26 10:10:06 CST] [INFO] send amount 6, recv amount 5
-[2020/05/26 10:10:06 CST] [INFO] send amount 6, recv amount 5
-[2020/05/26 10:10:06 CST] [INFO] send amount 6, recv amount 5
-[2020/05/26 10:10:06 CST] [INFO] average send amount 5.555556, average recv amount 5.000000, total send amount 55, total recv amount 50
-整个网络总共发送了55次tx，接收了50次，平均每秒发送5.555556比交易，接收5比交易
+[2020/05/26 10:44:50 CST] [INFO] send tx number 5, recv tx number 5
+[2020/05/26 10:44:50 CST] [INFO] send tx number 5, recv tx number 5
+[2020/05/26 10:44:50 CST] [INFO] send tx number 5, recv tx number 5
+[2020/05/26 10:44:50 CST] [INFO] send tx number 5, recv tx number 5
+[2020/05/26 10:44:50 CST] [INFO] send tx number 5, recv tx number 5
+[2020/05/26 10:44:50 CST] [INFO] send tx number 6, recv tx number 5
+[2020/05/26 10:44:50 CST] [INFO] send tx number 6, recv tx number 5
+[2020/05/26 10:44:50 CST] [INFO] send tx number 6, recv tx number 5
+[2020/05/26 10:44:50 CST] [INFO] send tx number 6, recv tx number 5
+[2020/05/26 10:44:50 CST] [INFO] average send tx number 5.444444, average recv tx number 5.000000, total send tx number 54, total recv tx number 50
+[2020/05/26 10:44:50 CST] [DEBG] clear msg stat
+[2020/05/26 10:44:50 CST] [INFO] Run Method:txCount success.
+[2020/05/26 10:44:50 CST] [INFO] ---------------------------------------------------------------
+[2020/05/26 10:44:50 CST] [INFO] 
+[2020/05/26 10:44:50 CST] [DEBG] [GC] end testing, stop server and clear instance...
+[2020/05/26 10:44:50 CST] [INFO] remove peer 5f0b92825c9b9b23b90e298432c661aaa7bcdd03 from net server
+[2020/05/26 10:44:50 CST] [INFO] closing connection: peer 5f0b92825c9b9b23b90e298432c661aaa7bcdd03, address: 127.0.0.1:50394
+[2020/05/26 10:44:50 CST] [DEBG] peer disconnected, address: 127.0.0.1:50394, id 14843127213869029055
+[2020/05/26 10:44:50 CST] [DEBG] ......
+[2020/05/26 10:44:50 CST] [INFO] ===============================================================
+[2020/05/26 10:44:50 CST] [INFO] Ontology Tool Finish Total:1 Success:1 Failed:0 Skip:0, SpendTime:13 sec
+[2020/05/26 10:44:50 CST] [INFO] ---------------------------------------------------------------
+[2020/05/26 10:44:50 CST] [INFO] Success list:
+[2020/05/26 10:44:50 CST] [INFO] 1.	txCount
+[2020/05/26 10:44:50 CST] [INFO] ===============================================================
+整个网络总共发送了54次tx，接收了50次，平均每秒发送5.444444笔交易，接收5笔交易
 ```

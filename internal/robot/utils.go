@@ -283,6 +283,46 @@ func Dispatch(sec int) {
 	time.Sleep(expire)
 }
 
+type statCount struct {
+	send uint64
+	recv uint64
+}
+
+func statMsgCount(iplist []string, startHttpPort, endHttpPort uint16, stat *statCount) {
+	log4.Debug("init sendCount:%d, recvCount:%d", stat.send, stat.recv)
+
+	for _, ip := range iplist {
+		for p := startHttpPort; p <= endHttpPort; p++ {
+			count, err := getStatResult(ip, p, "/stat/send")
+			if err != nil {
+				_ = log4.Error("[send/count] err:%s", err)
+			} else {
+				stat.send = count
+			}
+
+			count, err = getStatResult(ip, p, "/stat/recv")
+			if err != nil {
+				_ = log4.Error("[recv/count] err:%s", err)
+			} else {
+
+				stat.recv = count
+			}
+		}
+	}
+}
+
+func clearMsgCount(iplist []string, startHttpPort, endHttpPort uint16) {
+	log4.Debug("clear msg stat")
+
+	for _, ip := range iplist {
+		for p := startHttpPort; p <= endHttpPort; p++ {
+			if err := getClearResult(ip, p, "/stat/clear"); err != nil {
+				_ = log4.Error("[send/count] err:%s", err)
+			}
+		}
+	}
+}
+
 func getStatResult(ip string, port uint16, method string) (count uint64, err error) {
 	var (
 		req  *http.Request
@@ -313,6 +353,33 @@ func getStatResult(ip string, port uint16, method string) (count uint64, err err
 		return
 	}
 	count = uint64(num)
+	return
+}
+
+func getClearResult(ip string, port uint16, method string) (err error) {
+	var (
+		req  *http.Request
+		resp *http.Response
+		res  = &httpinfo.Resp{}
+	)
+
+	url := fmt.Sprintf("http://%s:%d%s", ip, port, method)
+	if req, err = http.NewRequest("GET", url, nil); err != nil {
+		return
+	}
+	if resp, err = http.DefaultClient.Do(req); err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	if err = parseResponse(resp.Body, res); err != nil {
+		return
+	}
+
+	if res.Succeed == false {
+		err = fmt.Errorf("%s", res.Err)
+		return
+	}
+
 	return
 }
 
@@ -386,34 +453,6 @@ func (w *invalidTxWorker) sendInvalidTxWithoutCheckBalance(dest string) (err err
 	// send dump tx
 	err = w.pr.Send(tran)
 	return
-}
-
-type statCount struct {
-	send uint64
-	recv uint64
-}
-
-func statMsgCount(iplist []string, startHttpPort, endHttpPort uint16, stat *statCount) {
-	log4.Debug("init sendCount:%d, recvCount:%d", stat.send, stat.recv)
-
-	for _, ip := range iplist {
-		for p := startHttpPort; p <= endHttpPort; p++ {
-			count, err := getStatResult(ip, p, "/stat/send")
-			if err != nil {
-				_ = log4.Error("[send/count] err:%s", err)
-			} else {
-				stat.send = count
-			}
-
-			count, err = getStatResult(ip, p, "/stat/recv")
-			if err != nil {
-				_ = log4.Error("[recv/count] err:%s", err)
-			} else {
-
-				stat.recv = count
-			}
-		}
-	}
 }
 
 func singleTransfer(remote, jsonrpc, dest string, amount uint64, expire int) error {

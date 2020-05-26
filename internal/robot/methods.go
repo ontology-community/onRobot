@@ -763,14 +763,18 @@ func TxCount() bool {
 	var dumpList = func() {
 		totalSend, totalRecv := uint64(0), uint64(0)
 		for _, v := range list {
-			log4.Info("send amount %d, recv amount %d", v[0], v[1])
+			log4.Info("send tx number %d, recv tx number %d", v[0], v[1])
 			totalSend += v[0]
 			totalRecv += v[1]
 		}
 		avSend := float64(totalSend) / float64(len(list))
 		avRecv := float64(totalRecv) / float64(len(list))
-		log4.Info("average send amount %f, average recv amount %f, total send amount %d, total recv amount %d",
+		log4.Info("average send tx number %f, average recv tx number %f, total send tx number %d, total recv tx number %d",
 			avSend, avRecv, stat.send, stat.recv)
+	}
+
+	var clearStat = func() {
+		clearMsgCount(params.IpList, params.StartHttpPort, params.EndHttpPort)
 	}
 
 	for {
@@ -786,6 +790,7 @@ func TxCount() bool {
 
 		case <-stop:
 			dumpList()
+			clearStat()
 			return true
 		}
 	}
