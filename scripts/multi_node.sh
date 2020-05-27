@@ -11,6 +11,7 @@ cd $basedir
 datadir=$basedir/node
 rm -rf $basedir/p2pnode*
 cp $datadir/node $basedir/p2pnode
+rm -rf nohup.out 
 
 startHttpPort=30000
 startNodePort=40000
