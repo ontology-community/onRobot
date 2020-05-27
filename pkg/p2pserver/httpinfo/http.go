@@ -7,6 +7,11 @@ import (
 	"net/http"
 )
 
+const (
+	StatList  = "/stat/list"
+	StatClear = "/stat/clear"
+)
+
 type TxInfoServer struct {
 	svr *netserver.NetServer
 }
@@ -19,42 +24,35 @@ func RunTxInfoHttpServer(srv *netserver.NetServer, port uint16) {
 }
 
 func (s *TxInfoServer) HandleHttpServer(port uint16) {
-
-	http.HandleFunc("/stat/send", s.handleSendCount)
-	http.HandleFunc("/stat/recv", s.handleRecvCount)
-	http.HandleFunc("/stat/clear", s.handleClearCount)
+	http.HandleFunc(StatList, s.handleStat)
+	http.HandleFunc(StatClear, s.handleClear)
 	addr := fmt.Sprintf(":%d", port)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log4.Crash(err)
 	}
+	log4.Info("tx stat info server started, listen on %d!", port)
 }
 
-func (s *TxInfoServer) handleSendCount(w http.ResponseWriter, r *http.Request) {
+func (s *TxInfoServer) handleStat(w http.ResponseWriter, r *http.Request) {
 	st, err := s.svr.GetStat()
 	if err != nil {
 		errors(w, err)
 		return
 	}
-	count := st.SendMsgCount()
-	result(w, count)
+	data, err := st.Stat()
+	if err != nil {
+		errors(w, err)
+		return
+	}
+	result(w, data)
 }
 
-func (s *TxInfoServer) handleRecvCount(w http.ResponseWriter, r *http.Request) {
+func (s *TxInfoServer) handleClear(w http.ResponseWriter, r *http.Request) {
 	st, err := s.svr.GetStat()
 	if err != nil {
 		errors(w, err)
 		return
 	}
-	count := st.RecvMsgCount()
-	result(w, count)
-}
-
-func (s *TxInfoServer) handleClearCount(w http.ResponseWriter, r *http.Request) {
-	st, err := s.svr.GetStat()
-	if err != nil {
-		errors(w, err)
-		return
-	}
-	st.ClearMsgCount()
+	st.Clear()
 	result(w, true)
 }

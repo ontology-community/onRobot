@@ -1,69 +1,85 @@
 package stat
 
 import (
+	"encoding/json"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
 	"sync"
 )
 
-type TxStat struct {
-	sendmap,
-	recvmap map[string]uint64
+type TxNum struct {
+	Hash string `json:"hash"`
+	Send uint64 `json:"send"`
+	Recv uint64 `json:"recv"`
+}
 
-	smu,
-	rmu *sync.RWMutex
+type TxStat struct {
+	data map[string]*TxNum
+	mu   *sync.RWMutex
 }
 
 func NewMsgStat() *TxStat {
 	st := &TxStat{}
-	st.smu = new(sync.RWMutex)
-	st.rmu = new(sync.RWMutex)
-	st.sendmap = make(map[string]uint64)
-	st.recvmap = make(map[string]uint64)
+	st.mu = new(sync.RWMutex)
+	st.data = make(map[string]*TxNum)
 	return st
 }
 
 func (s *TxStat) HandleSendMsg(peerId common.PeerId, message types.Message) {
 	if message.CmdType() == common.TX_TYPE {
-		s.smu.Lock()
 		if tx, ok := message.(*types.Trn); ok {
-			hash := tx.Txn.Hash()
-			s.sendmap[hash.ToHexString()] += 1
+			s.mu.Lock()
+			h := tx.Txn.Hash()
+			hash := h.ToHexString()
+			s.GenerateTxNum(hash)
+			s.data[hash].Send += 1
+			s.mu.Unlock()
 		}
-		s.smu.Unlock()
 	}
 }
 
 func (s *TxStat) HandleRecvMsg(payload *types.MsgPayload) {
 	if payload.Payload.CmdType() == common.TX_TYPE {
-		s.rmu.Lock()
 		message := payload.Payload
 		if tx, ok := message.(*types.Trn); ok {
-			hash := tx.Txn.Hash()
-			s.recvmap[hash.ToHexString()] += 1
+			s.mu.Lock()
+			h := tx.Txn.Hash()
+			hash := h.ToHexString()
+			s.GenerateTxNum(hash)
+			s.data[hash].Recv += 1
+			s.mu.Unlock()
 		}
-		s.rmu.Unlock()
 	}
 }
 
-func (s *TxStat) SendMsgCount() map[string]uint64 {
-	s.smu.RLock()
-	defer s.smu.RUnlock()
-	return s.sendmap
+func (s *TxStat) Stat() (string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	list := make([]*TxNum, 0)
+	for _, v := range s.data {
+		list = append(list, v)
+	}
+	bz, err := json.Marshal(list)
+	if err != nil {
+		return "", err
+	}
+	return string(bz), nil
 }
 
-func (s *TxStat) RecvMsgCount() map[string]uint64 {
-	s.rmu.RLock()
-	defer s.rmu.RUnlock()
-	return s.recvmap
+func (s *TxStat) Clear() {
+	s.mu.Lock()
+	s.data = make(map[string]*TxNum)
+	s.mu.Unlock()
 }
 
-func (s *TxStat) ClearMsgCount() {
-	s.smu.Lock()
-	s.sendmap = make(map[string]uint64)
-	s.smu.Unlock()
+func (s *TxStat) GenerateTxNum(hash string) {
+	if _, ok := s.data[hash]; !ok {
+		s.data[hash] = &TxNum{Hash: hash, Send: 0, Recv: 0}
+	}
+}
 
-	s.rmu.Lock()
-	s.recvmap = make(map[string]uint64)
-	s.rmu.Unlock()
+func Parse2TxNumList(data string) ([]*TxNum, error) {
+	list := []*TxNum{}
+	err := json.Unmarshal([]byte(data), &list)
+	return list, err
 }

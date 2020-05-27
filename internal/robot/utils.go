@@ -34,6 +34,7 @@ import (
 	"github.com/ontology-community/onRobot/pkg/p2pserver/params"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/stat"
 	"github.com/ontology-community/onRobot/pkg/sdk"
 	"io"
 	"io/ioutil"
@@ -283,12 +284,6 @@ func Dispatch(sec int) {
 	time.Sleep(expire)
 }
 
-type statCount struct {
-	send uint64
-	recv uint64
-	mu   *sync.Mutex
-}
-
 type httpClient struct {
 	cli *http.Client
 }
@@ -302,30 +297,27 @@ func NewHttpClient() *httpClient {
 	}
 }
 
-func (c *httpClient) statMsgCount(iplist []string, startHttpPort, endHttpPort uint16, stat *statCount) {
-	log4.Debug("init sendCount:%d, recvCount:%d", stat.send, stat.recv)
+func (c *httpClient) statMsgCount(iplist []string, startHttpPort, endHttpPort uint16) map[string]*stat.TxNum {
+	list := make(map[string]*stat.TxNum)
 
 	for _, ip := range iplist {
 		for p := startHttpPort; p <= endHttpPort; p++ {
-			count, err := c.getStatResult(ip, p, "/stat/send")
+			data, err := c.getStatResult(ip, p, httpinfo.StatList)
 			if err != nil {
 				_ = log4.Error("[send/count] err:%s", err)
 			} else {
-				stat.mu.Lock()
-				stat.send = count
-				stat.mu.Unlock()
-			}
-
-			count, err = c.getStatResult(ip, p, "/stat/recv")
-			if err != nil {
-				_ = log4.Error("[recv/count] err:%s", err)
-			} else {
-				stat.mu.Lock()
-				stat.recv = count
-				stat.mu.Unlock()
+				for _, v := range data {
+					if _, ok := list[v.Hash]; !ok {
+						list[v.Hash] = &stat.TxNum{Hash: v.Hash, Send: 0, Recv: 0}
+					}
+					list[v.Hash].Send += v.Send
+					list[v.Hash].Recv += v.Recv
+				}
 			}
 		}
 	}
+
+	return list
 }
 
 func (c *httpClient) clearMsgCount(iplist []string, startHttpPort, endHttpPort uint16) {
@@ -333,19 +325,19 @@ func (c *httpClient) clearMsgCount(iplist []string, startHttpPort, endHttpPort u
 
 	for _, ip := range iplist {
 		for p := startHttpPort; p <= endHttpPort; p++ {
-			if err := c.getClearResult(ip, p, "/stat/clear"); err != nil {
+			if err := c.getClearResult(ip, p, httpinfo.StatClear); err != nil {
 				_ = log4.Error("[send/count] err:%s", err)
 			}
 		}
 	}
 }
 
-func (c *httpClient) getStatResult(ip string, port uint16, method string) (count uint64, err error) {
+func (c *httpClient) getStatResult(ip string, port uint16, method string) (count []*stat.TxNum, err error) {
 	var (
 		req  *http.Request
 		resp *http.Response
 		res  = &httpinfo.Resp{}
-		num  float64
+		data string
 		ok   bool
 	)
 
@@ -360,16 +352,14 @@ func (c *httpClient) getStatResult(ip string, port uint16, method string) (count
 	if err = parseResponse(resp.Body, res); err != nil {
 		return
 	}
-
 	if res.Succeed == false {
 		err = fmt.Errorf("%s", res.Err)
 		return
 	}
-	if num, ok = res.Data.(float64); !ok {
+	if data, ok = res.Data.(string); !ok {
 		err = fmt.Errorf("stat count type invalid")
-		return
 	}
-	count = uint64(num)
+	count, err = stat.Parse2TxNumList(data)
 	return
 }
 
@@ -415,10 +405,10 @@ func parseResponse(body io.Reader, res interface{}) error {
 }
 
 type invalidTxWorker struct {
-	pr   *peer.Peer
-	acc  *account.Account
-	dst  chan string
-	stop chan struct{}
+	pr  *peer.Peer
+	acc *account.Account
+	//dst  chan string
+	//stop chan struct{}
 }
 
 func NewInvalidTxWorker(remote string) (*invalidTxWorker, error) {
@@ -433,29 +423,30 @@ func NewInvalidTxWorker(remote string) (*invalidTxWorker, error) {
 		return nil, err
 	}
 	return &invalidTxWorker{
-		pr:   pr,
-		acc:  acc,
-		stop: make(chan struct{}),
-		dst:  make(chan string),
+		pr:  pr,
+		acc: acc,
+		//stop: make(chan struct{}),
+		//dst:  make(chan string),
 	}, nil
 }
 
-func (w *invalidTxWorker) Start() {
-	for {
-		select {
-		case dst := <-w.dst:
-			if err := w.sendInvalidTxWithoutCheckBalance(dst); err != nil {
-				_ = log4.Error("%s", err)
-			}
-		case <-w.stop:
-			return
-		}
-	}
-}
-
-func (w *invalidTxWorker) Stop() {
-	close(w.stop)
-}
+//
+//func (w *invalidTxWorker) Start() {
+//	for {
+//		select {
+//		case dst := <-w.dst:
+//			if err := w.sendInvalidTxWithoutCheckBalance(dst); err != nil {
+//				_ = log4.Error("%s", err)
+//			}
+//		case <-w.stop:
+//			return
+//		}
+//	}
+//}
+//
+//func (w *invalidTxWorker) Stop() {
+//	close(w.stop)
+//}
 
 func (w *invalidTxWorker) sendInvalidTxWithoutCheckBalance(dest string) (err error) {
 	var (

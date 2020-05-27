@@ -34,7 +34,6 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -734,66 +733,41 @@ func TxCount() bool {
 		return false
 	}
 
-	sendTicker := time.NewTicker(time.Duration(params.Ticker) * time.Second)
-	statTicker := time.NewTicker(time.Duration(params.Ticker) * time.Second)
-	dispatch := 0
-	stop := make(chan struct{})
-	stat := &statCount{send: 0, recv: 0, mu: new(sync.Mutex)}
-	list := make([][4]uint64, 0)
-
-	// clear past stat data
+	// clear history data
 	cli := NewHttpClient()
 	cli.clearMsgCount(params.IpList, params.StartHttpPort, params.EndHttpPort)
 
+	// send invalid transfer
 	worker, err := NewInvalidTxWorker(params.Remote)
 	if err != nil {
 		_ = log4.Error("%s", err)
 		return false
 	}
-	go worker.Start()
-
-	go func() {
-		for {
-			select {
-			case <-sendTicker.C:
-				worker.dst <- params.DestAccount
-				dispatch += 1
-				if dispatch >= params.DispatchTime {
-					stop <- struct{}{}
-					worker.Stop()
-					return
-				}
-			}
-		}
-	}()
-
-	var dumpList = func() {
-		totalSend, totalRecv := uint64(0), uint64(0)
-		for _, v := range list {
-			log4.Info("send tx number %d, recv tx number %d", v[0], v[1])
-			totalSend += v[0]
-			totalRecv += v[1]
-		}
-		avSend := float64(totalSend) / float64(len(list))
-		avRecv := float64(totalRecv) / float64(len(list))
-		log4.Info("average send tx number %f, average recv tx number %f, total send tx number %d, total recv tx number %d",
-			avSend, avRecv, stat.send, stat.recv)
-	}
-
-	for {
+	ticker := time.NewTicker(time.Duration(params.Ticker) * time.Second)
+	dispatch := 0
+	for dispatch < params.DispatchTime {
 		select {
-		case <-statTicker.C:
-			initSend, initRecv := stat.send, stat.recv
-			log4.Info("before stat, sendCount %d, recvCount %d", stat.send, stat.recv)
-			cli.statMsgCount(params.IpList, params.StartHttpPort, params.EndHttpPort, stat)
-			sendAmount, recvAmount := stat.send-initSend, stat.recv-initRecv
-			list = append(list, [4]uint64{sendAmount, recvAmount, stat.send, stat.recv})
-
-		case <-stop:
-			dumpList()
-			return true
+		case <-ticker.C:
+			if err := worker.sendInvalidTxWithoutCheckBalance(params.DestAccount); err != nil {
+				_ = log4.Error("%s", err)
+				continue
+			}
+			dispatch += 1
 		}
 	}
+
+	// get stat and dump
+	list := cli.statMsgCount(params.IpList, params.StartHttpPort, params.EndHttpPort)
+	totalSend, totalRecv := uint64(0), uint64(0)
+	for _, v := range list {
+		totalSend += v.Send
+		totalRecv += v.Recv
+		log4.Info("send amount %d, recv amount %d", v.Send, v.Recv)
+	}
+	avSend := float64(totalSend) / float64(len(list))
+	avRecv := float64(totalRecv) / float64(len(list))
+	log4.Info("avg send %f, avg recv %f, total send %d, total recv %d", avSend, avRecv, totalSend, totalRecv)
+	return true
 }
 
 // 访问邻结点
