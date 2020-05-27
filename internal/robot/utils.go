@@ -302,6 +302,7 @@ func (c *httpClient) statMsgCount(iplist []string, startHttpPort, endHttpPort ui
 
 	for _, ip := range iplist {
 		for p := startHttpPort; p <= endHttpPort; p++ {
+			time.Sleep(100 * time.Millisecond)
 			data, err := c.getStatResult(ip, p, httpinfo.StatList)
 			if err != nil {
 				_ = log4.Error("[send/count] err:%s", err)
@@ -325,6 +326,7 @@ func (c *httpClient) clearMsgCount(iplist []string, startHttpPort, endHttpPort u
 
 	for _, ip := range iplist {
 		for p := startHttpPort; p <= endHttpPort; p++ {
+			time.Sleep(100 * time.Millisecond)
 			if err := c.getClearResult(ip, p, httpinfo.StatClear); err != nil {
 				_ = log4.Error("[send/count] err:%s", err)
 			}
