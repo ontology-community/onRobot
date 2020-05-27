@@ -1,11 +1,11 @@
 {
   "IpList": [
-    "127.0.0.1"
+    "172.168.3.151"
   ],
   "Ticker": 1,
-  "StartHttpPort": 30000,
-  "EndHttpPort": 30100,
-  "Remote": "127.0.0.1:40001",
+  "StartHttpPort": 30001,
+  "EndHttpPort": 30002,
+  "Remote": "172.168.3.151:40001",
   "DestAccount": "AWoQ8oFXXz9EwGBTP2mncqe5ngr1VnKagZ",
   "DispatchTime": 20
 }

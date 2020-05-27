@@ -12,8 +12,8 @@ datadir=$basedir/node
 rm -rf $basedir/p2pnode*
 cp $datadir/node $basedir/p2pnode
 
-startHttpPort=10000
-startNodePort=20000
+startHttpPort=30000
+startNodePort=40000
 
 for idx in $(seq 1 10)
 do
@@ -27,7 +27,7 @@ echo "workspace $workspace, httpport $httpPort, nodeport $nodePort"
 #cp $datadir/config.json $workspace/config.json
 #cp $datadir/log4go.xml $workspace/log4go.xml
 
-sudo nohup ./p2pnode -config=$workspace/config.json \
+nohup ./p2pnode -config=$workspace/config.json \
 -log=$workspace/log4go.xml \
 -httpport=$httpPort \
 -nodeport=$nodePort &
