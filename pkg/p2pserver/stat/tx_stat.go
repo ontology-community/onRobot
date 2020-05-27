@@ -1,62 +1,69 @@
 package stat
 
 import (
-	"github.com/alecthomas/log4go"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
 	"sync"
 )
 
 type TxStat struct {
-	smu, rmu   *sync.RWMutex
-	send, recv uint64
+	sendmap,
+	recvmap map[string]uint64
+
+	smu,
+	rmu *sync.RWMutex
 }
 
 func NewMsgStat() *TxStat {
 	st := &TxStat{}
-	st.send = 0
-	st.recv = 0
 	st.smu = new(sync.RWMutex)
 	st.rmu = new(sync.RWMutex)
+	st.sendmap = make(map[string]uint64)
+	st.recvmap = make(map[string]uint64)
 	return st
 }
 
 func (s *TxStat) HandleSendMsg(peerId common.PeerId, message types.Message) {
 	if message.CmdType() == common.TX_TYPE {
 		s.smu.Lock()
-		s.send += 1
+		if tx, ok := message.(*types.Trn); ok {
+			hash := tx.Txn.Hash()
+			s.sendmap[hash.ToHexString()] += 1
+		}
 		s.smu.Unlock()
-		log4go.Debug("send msg count %d", s.send)
 	}
 }
 
 func (s *TxStat) HandleRecvMsg(payload *types.MsgPayload) {
 	if payload.Payload.CmdType() == common.TX_TYPE {
 		s.rmu.Lock()
-		s.recv += 1
+		message := payload.Payload
+		if tx, ok := message.(*types.Trn); ok {
+			hash := tx.Txn.Hash()
+			s.recvmap[hash.ToHexString()] += 1
+		}
 		s.rmu.Unlock()
-		log4go.Debug("recv msg count %d", s.send)
 	}
 }
 
-func (s *TxStat) SendMsgCount() uint64 {
+func (s *TxStat) SendMsgCount() map[string]uint64 {
 	s.smu.RLock()
 	defer s.smu.RUnlock()
-	return s.send
+	return s.sendmap
 }
 
-func (s *TxStat) RecvMsgCount() uint64 {
+func (s *TxStat) RecvMsgCount() map[string]uint64 {
 	s.rmu.RLock()
 	defer s.rmu.RUnlock()
-	return s.recv
+	return s.recvmap
 }
 
 func (s *TxStat) ClearMsgCount() {
 	s.smu.Lock()
-	s.send = 0
+	s.sendmap = make(map[string]uint64)
 	s.smu.Unlock()
 
 	s.rmu.Lock()
-	s.recv = 0
+	s.recvmap = make(map[string]uint64)
 	s.rmu.Unlock()
 }

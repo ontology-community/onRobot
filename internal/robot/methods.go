@@ -31,6 +31,7 @@ import (
 	"github.com/ontology-community/onRobot/pkg/sdk"
 	"math"
 	"math/big"
+	"net"
 	"strconv"
 	"strings"
 	"sync"
@@ -791,6 +792,70 @@ func TxCount() bool {
 		case <-stop:
 			dumpList()
 			return true
+		}
+	}
+}
+
+// 访问邻结点
+func Neighbor() bool {
+	var params struct {
+		Remote         string
+		ExpectedIpList []string
+		Timeout        int
+	}
+
+	if err := files.LoadParams(conf.ParamsFileDir, "Neighbor.json", &params); err != nil {
+		_ = log4.Error("%s", err)
+		return false
+	}
+
+	ch := make(chan *types.FindNodeResp)
+	protocol := protocols.NewNeighborHandler(ch)
+	ns := GenerateNetServerWithProtocol(protocol)
+	pr, err := ns.ConnectAndReturnPeer(params.Remote)
+	if err != nil {
+		_ = log4.Error("connect peer err: %s", err)
+		return false
+	}
+
+	ticker := time.NewTicker(1 * time.Second)
+	count := 0
+
+	// 寻找离自己较近的节点
+	req := &types.FindNodeReq{TargetID: ns.GetID()}
+	nbrs := make(map[string]struct{})
+	for _, v := range params.ExpectedIpList {
+		nbrs[v] = struct{}{}
+	}
+
+	for {
+		select {
+		case msg := <-ch:
+			for _, peer := range msg.CloserPeers {
+				ip, _, err := net.SplitHostPort(peer.Address)
+				if err != nil {
+					_ = log4.Error("splitHostPort err: %s", err)
+					return false
+				}
+				log4.Info("neighbor: %s", ip)
+
+				if _, ok := nbrs[ip]; ok {
+					delete(nbrs, ip)
+				}
+				if len(nbrs) == 0 {
+					return true
+				}
+			}
+
+		case <-ticker.C:
+			if err := pr.Send(req); err != nil {
+				_ = log4.Error("send find neighbor nodes req err %s", err)
+				return false
+			}
+			if count++; count > params.Timeout {
+				_ = log4.Error("testcase timeout")
+				return false
+			}
 		}
 	}
 }
