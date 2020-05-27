@@ -15,7 +15,7 @@ cp $datadir/node $basedir/p2pnode
 startHttpPort=30000
 startNodePort=40000
 
-for idx in $(seq 1 10)
+for idx in $(seq 1 30)
 do
 
 name=p2pnode$idx
@@ -30,9 +30,11 @@ echo "workspace $workspace, httpport $httpPort, nodeport $nodePort"
 nohup ./p2pnode -config=$workspace/config.json \
 -log=$workspace/log4go.xml \
 -httpport=$httpPort \
--nodeport=$nodePort &
+-nodeport=$nodePort > $name.log
 
 echo "$name started!"
+
+sleep 1s
 done
 
 ps -ef|grep p2pnode
