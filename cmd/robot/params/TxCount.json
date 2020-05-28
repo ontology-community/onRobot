@@ -11,6 +11,7 @@
   "TxPerSec": 2,
   "TxPerStat": 10,
   "MsgNumber": 30,
+  "StatAfterDuration": 20,
   "Mysql": {
     "Ip": "172.168.3.219",
     "Port": 3306,

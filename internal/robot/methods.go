@@ -721,17 +721,18 @@ func TransferOnt() bool {
 
 func TxCount() bool {
 	var params struct {
-		IpList        []string
-		StartHttpPort uint16
-		EndHttpPort   uint16
-		Remote        string
-		DestAccount   string
-		MsgNumber     int64
-		SendTicker    int
-		StatTicker    int
-		TxPerSec      int
-		TxPerStat     int
-		Mysql         *dao.Config
+		IpList            []string
+		StartHttpPort     uint16
+		EndHttpPort       uint16
+		Remote            string
+		DestAccount       string
+		MsgNumber         int64
+		SendTicker        int
+		StatTicker        int
+		TxPerSec          int
+		TxPerStat         int
+		StatAfterDuration int
+		Mysql             *dao.Config
 	}
 
 	if err := files.LoadParams(conf.ParamsFileDir, "TxCount.json", &params); err != nil {
@@ -765,7 +766,7 @@ func TxCount() bool {
 		}
 	}()
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(time.Duration(params.StatAfterDuration) * time.Second)
 	var msgCount int64
 	for msgCount < params.MsgNumber {
 		select {
