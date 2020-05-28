@@ -15,6 +15,7 @@ var (
 type Stat struct {
 	Ip   string
 	Port uint16
+	Hash string
 	Send uint64
 	Recv uint64
 }
@@ -42,6 +43,6 @@ func NewDao(c *Config) {
 	})
 }
 
-func InsertStat(ip string, port uint16, send, recv uint64) error {
-	return dao.Create(&Stat{Ip: ip, Port: port, Send: send, Recv: recv}).Error
+func InsertStat(ip string, port uint16, hash string, send, recv uint64) error {
+	return dao.Create(&Stat{Ip: ip, Port: port, Hash: hash, Send: send, Recv: recv}).Error
 }

@@ -773,9 +773,9 @@ func TxCount() bool {
 			hashlist := worker.getHashList(params.TxPerStat)
 			list := cli.statHashList(hashlist)
 			for _, v := range list {
-				log4.Debug("get stat transaction %s, ip %s, port %d, send %d, recv %d",
-					v.Hash, v.Ip, v.Port, v.Send, v.Recv)
-				if err := dao.InsertStat(v.Ip, v.Port, v.Send, v.Recv); err != nil {
+				log4.Debug("get stat transaction %s, ip %s, port %d, hash %s, send %d, recv %d",
+					v.Hash, v.Ip, v.Port, v.Hash, v.Send, v.Recv)
+				if err := dao.InsertStat(v.Ip, v.Port, v.Hash, v.Send, v.Recv); err != nil {
 					_ = log4.Error("save record in db err :%s", err)
 				}
 			}
