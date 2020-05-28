@@ -1,11 +1,21 @@
 {
   "IpList": [
-    "172.168.3.151"
+    "127.0.0.1"
   ],
-  "Ticker": 1,
   "StartHttpPort": 30001,
-  "EndHttpPort": 30030,
-  "Remote": "172.168.3.151:40001",
+  "EndHttpPort": 30004,
+  "Remote": "127.0.0.1:40001",
   "DestAccount": "AWoQ8oFXXz9EwGBTP2mncqe5ngr1VnKagZ",
-  "DispatchTime": 30
+  "SendTicker": 1,
+  "StatTicker": 10,
+  "TxPerSec": 2,
+  "TxPerStat": 10,
+  "MsgNumber": 30,
+  "Mysql": {
+    "Ip": "172.168.3.219",
+    "Port": 3306,
+    "User": "root",
+    "Pwd": "123456",
+    "Db": "txstat"
+  }
 }

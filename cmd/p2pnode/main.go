@@ -18,8 +18,8 @@ var (
 func init() {
 	flag.StringVar(&Config, "config", "target/node/config.json", "Config of ontology-tool")
 	flag.StringVar(&LogConfig, "log", "target/node/log4go.xml", "Log config of ontology-tool")
-	flag.UintVar(&httpPort, "httpport", 10031, "http info port")
-	flag.UintVar(&nodePort, "nodeport", 20031, "http info port")
+	flag.UintVar(&httpPort, "httpport", 30004, "http info port")
+	flag.UintVar(&nodePort, "nodeport", 40004, "http info port")
 	flag.Parse()
 }
 

@@ -22,6 +22,7 @@ import (
 	log4 "github.com/alecthomas/log4go"
 	ontcm "github.com/ontio/ontology/common"
 	"github.com/ontology-community/onRobot/internal/robot/conf"
+	"github.com/ontology-community/onRobot/internal/robot/dao"
 	"github.com/ontology-community/onRobot/pkg/files"
 	p2pcm "github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/handshake"
@@ -34,6 +35,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -724,8 +726,12 @@ func TxCount() bool {
 		EndHttpPort   uint16
 		Remote        string
 		DestAccount   string
-		DispatchTime  int
-		Ticker        int
+		MsgNumber     int64
+		SendTicker    int
+		StatTicker    int
+		TxPerSec      int
+		TxPerStat     int
+		Mysql         *dao.Config
 	}
 
 	if err := files.LoadParams(conf.ParamsFileDir, "TxCount.json", &params); err != nil {
@@ -733,9 +739,12 @@ func TxCount() bool {
 		return false
 	}
 
+	// new dao
+	dao.NewDao(params.Mysql)
+
 	// clear history data
-	cli := NewHttpClient()
-	cli.clearMsgCount(params.IpList, params.StartHttpPort, params.EndHttpPort)
+	cli := NewHttpClient(params.IpList, params.StartHttpPort, params.EndHttpPort)
+	cli.clearMsgCount()
 
 	// send invalid transfer
 	worker, err := NewInvalidTxWorker(params.Remote)
@@ -743,30 +752,37 @@ func TxCount() bool {
 		_ = log4.Error("%s", err)
 		return false
 	}
-	ticker := time.NewTicker(time.Duration(params.Ticker) * time.Second)
-	dispatch := 0
-	for dispatch < params.DispatchTime {
-		select {
-		case <-ticker.C:
-			if err := worker.sendInvalidTxWithoutCheckBalance(params.DestAccount); err != nil {
-				_ = log4.Error("%s", err)
-				continue
+
+	sendTicker := time.NewTicker(time.Duration(params.SendTicker) * time.Second)
+	statTicker := time.NewTicker(time.Duration(params.StatTicker) * time.Second)
+
+	go func() {
+		for worker.msgNum < params.MsgNumber {
+			select {
+			case <-sendTicker.C:
+				worker.sendMultiInvalidTx(params.TxPerSec, params.DestAccount)
 			}
-			dispatch += 1
+		}
+	}()
+
+	time.Sleep(10 * time.Second)
+	var msgCount int64
+	for msgCount < params.MsgNumber {
+		select {
+		case <-statTicker.C:
+			hashlist := worker.getHashList(params.TxPerStat)
+			list := cli.statHashList(hashlist)
+			for _, v := range list {
+				log4.Debug("get stat transaction %s, ip %s, port %d, send %d, recv %d",
+					v.Hash, v.Ip, v.Port, v.Send, v.Recv)
+				if err := dao.InsertStat(v.Ip, v.Port, v.Send, v.Recv); err != nil {
+					_ = log4.Error("save record in db err :%s", err)
+				}
+			}
+			atomic.AddInt64(&msgCount, int64(len(hashlist)))
 		}
 	}
 
-	// get stat and dump
-	list := cli.statMsgCount(params.IpList, params.StartHttpPort, params.EndHttpPort)
-	totalSend, totalRecv := uint64(0), uint64(0)
-	for _, v := range list {
-		totalSend += v.Send
-		totalRecv += v.Recv
-		log4.Info("send amount %d, recv amount %d", v.Send, v.Recv)
-	}
-	avSend := float64(totalSend) / float64(len(list))
-	avRecv := float64(totalRecv) / float64(len(list))
-	log4.Info("avg send %f, avg recv %f, total send %d, total recv %d", avSend, avRecv, totalSend, totalRecv)
 	return true
 }
 

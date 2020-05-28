@@ -1,7 +1,12 @@
 #!/bin/bash
 
-file=./target/node/config.json
-remote=/home/ubuntu/ontology/node/dht/node/config.json
+# file=./target/node/config.json
+# remote=/home/ubuntu/ontology/node/dht/node/config.json
+
+file=.target/node/
+#file=./scripts/multi_node.sh
+#remote=/home/ubuntu/ontology/node/dht/multi_node.sh
+
 ipList="\
 172.168.3.151 \
 172.168.3.152 \

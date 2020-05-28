@@ -2,9 +2,17 @@
 
 killall -9 p2pnode
 
-workspace=/home/ubuntu/ontology/node/dht
-cd ${workspace}
+# set test case var
+num=3
+#workspace=/home/ubuntu/ontology/node/dht
+workspace=/Users/dylen/workspace/gohome/src/github.com/ontology-community/onRobot/target
 
+# set http and p2p port config
+startHttpPort=30000
+startNodePort=40000
+
+# prepare
+cd ${workspace}
 rm -rf log
 mkdir log
 rm -rf ${workspace}/p2pnode*
@@ -13,10 +21,8 @@ cp ${workspace}/node/config.json config.json
 cp ${workspace}/node/log4go.xml log4go.xml
 cp ${workspace}/node/node p2pnode
 
-startHttpPort=30000
-startNodePort=40000
-
-for idx in $(seq 1 30)
+# start nodes
+for idx in $(seq 1 ${num})
 do
 name=p2pnode${idx}
 httpPort=`expr ${startHttpPort} + ${idx}`
@@ -32,5 +38,7 @@ echo "$name started!"
 
 sleep 1s
 done
+echo "all started!"
 
+# stat started p2pnodes number
 ps -ef|grep p2pnode|wc -l

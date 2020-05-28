@@ -5,11 +5,14 @@ import (
 	log4 "github.com/alecthomas/log4go"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/net/netserver"
 	"net/http"
+	_ "net/http/pprof"
+	"strings"
 )
 
 const (
-	StatList  = "/stat/list"
-	StatClear = "/stat/clear"
+	StatList     = "/stat/list"
+	StatClear    = "/stat/clear"
+	StatHashList = "/stat/hashlist"
 )
 
 type TxInfoServer struct {
@@ -26,6 +29,7 @@ func RunTxInfoHttpServer(srv *netserver.NetServer, port uint16) {
 func (s *TxInfoServer) HandleHttpServer(port uint16) {
 	http.HandleFunc(StatList, s.handleStat)
 	http.HandleFunc(StatClear, s.handleClear)
+	http.HandleFunc(StatHashList, s.handleHashList)
 	addr := fmt.Sprintf(":%d", port)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log4.Crash(err)
@@ -55,4 +59,19 @@ func (s *TxInfoServer) handleClear(w http.ResponseWriter, r *http.Request) {
 	}
 	st.Clear()
 	result(w, true)
+}
+
+func (s *TxInfoServer) handleHashList(w http.ResponseWriter, r *http.Request) {
+	st, err := s.svr.GetStat()
+	if err != nil {
+		errors(w, err)
+		return
+	}
+	hashListStr := r.URL.Query().Get("list")
+	list := strings.Split(hashListStr, ",")
+	data, err := st.GetAndClearMulti(list)
+	if err != nil {
+		errors(w, err)
+	}
+	result(w, data)
 }

@@ -105,7 +105,7 @@ func (this *NbrPeers) Broadcast(msg types.Message) {
 		if node.Peer.GetRelay() {
 			go node.Peer.SendRaw(msg.CmdType(), sink.Bytes())
 
-			log4.Trace("broadcast to", node.Peer.Link.GetAddr())
+			log4.Trace("broadcast to %s", node.Peer.Link.GetAddr())
 			if this.stat != nil {
 				this.stat.HandleSendMsg(node.Peer.GetID(), msg)
 			}

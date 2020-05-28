@@ -41,7 +41,9 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -285,23 +287,49 @@ func Dispatch(sec int) {
 }
 
 type httpClient struct {
-	cli *http.Client
+	ips []string
+	startHttpPort,
+	endHttpPort uint16
+
+	list map[string]*http.Client
 }
 
-func NewHttpClient() *httpClient {
-	client := &http.Client{
-		Timeout: 10 * time.Second,
+func NewHttpClient(ipList []string, startHttpPort, endHttpPort uint16) *httpClient {
+	c := &httpClient{}
+	c.ips = ipList
+	c.startHttpPort = startHttpPort
+	c.endHttpPort = endHttpPort
+	c.list = make(map[string]*http.Client)
+
+	for _, ip := range c.ips {
+		for p := c.startHttpPort; p <= c.endHttpPort; p++ {
+			c.setCli(ip, p)
+		}
 	}
-	return &httpClient{
-		cli: client,
+	return c
+}
+
+func (c *httpClient) setCli(ip string, port uint16) {
+	addr := assembleIpAndPort(ip, port)
+	client := new(http.Client)
+	client.Timeout = 10 * time.Second
+	c.list[addr] = client
+}
+
+func (c *httpClient) getCli(ip string, port uint16) (*http.Client, error) {
+	addr := assembleIpAndPort(ip, port)
+	if cli, ok := c.list[addr]; !ok {
+		return nil, fmt.Errorf("http client for %s:%d not exist", ip, port)
+	} else {
+		return cli, nil
 	}
 }
 
-func (c *httpClient) statMsgCount(iplist []string, startHttpPort, endHttpPort uint16) map[string]*stat.TxNum {
+func (c *httpClient) statMsgCount() map[string]*stat.TxNum {
 	list := make(map[string]*stat.TxNum)
 
-	for _, ip := range iplist {
-		for p := startHttpPort; p <= endHttpPort; p++ {
+	for _, ip := range c.ips {
+		for p := c.startHttpPort; p <= c.endHttpPort; p++ {
 			time.Sleep(100 * time.Millisecond)
 			data, err := c.getStatResult(ip, p, httpinfo.StatList)
 			if err != nil {
@@ -321,11 +349,11 @@ func (c *httpClient) statMsgCount(iplist []string, startHttpPort, endHttpPort ui
 	return list
 }
 
-func (c *httpClient) clearMsgCount(iplist []string, startHttpPort, endHttpPort uint16) {
+func (c *httpClient) clearMsgCount() {
 	log4.Debug("clear msg stat")
 
-	for _, ip := range iplist {
-		for p := startHttpPort; p <= endHttpPort; p++ {
+	for _, ip := range c.ips {
+		for p := c.startHttpPort; p <= c.endHttpPort; p++ {
 			time.Sleep(100 * time.Millisecond)
 			if err := c.getClearResult(ip, p, httpinfo.StatClear); err != nil {
 				_ = log4.Error("[send/count] err:%s", err)
@@ -334,12 +362,42 @@ func (c *httpClient) clearMsgCount(iplist []string, startHttpPort, endHttpPort u
 	}
 }
 
+type WrapTxNum struct {
+	stat.TxNum
+	Ip   string
+	Port uint16
+}
+
+func (c *httpClient) statHashList(hashlist []string) []*WrapTxNum {
+	list := make([]*WrapTxNum, 0)
+
+	for _, ip := range c.ips {
+		for p := c.startHttpPort; p <= c.endHttpPort; p++ {
+			time.Sleep(100 * time.Millisecond)
+			data, err := c.getHashListResult(ip, p, httpinfo.StatHashList, hashlist)
+			if err != nil {
+				_ = log4.Error("[send/count] err:%s", err)
+			} else {
+				for _, v := range data {
+					tx := &WrapTxNum{Ip: ip, Port: p, TxNum: stat.TxNum{
+						Hash: v.Hash, Send: v.Send, Recv: v.Recv,
+					}}
+					list = append(list, tx)
+				}
+			}
+		}
+	}
+
+	return list
+}
+
 func (c *httpClient) getStatResult(ip string, port uint16, method string) (count []*stat.TxNum, err error) {
 	var (
 		req  *http.Request
 		resp *http.Response
 		res  = &httpinfo.Resp{}
 		data string
+		cli  *http.Client
 		ok   bool
 	)
 
@@ -347,7 +405,10 @@ func (c *httpClient) getStatResult(ip string, port uint16, method string) (count
 	if req, err = http.NewRequest("GET", url, nil); err != nil {
 		return
 	}
-	if resp, err = c.cli.Do(req); err != nil {
+	if cli, err = c.getCli(ip, port); err != nil {
+		return
+	}
+	if resp, err = cli.Do(req); err != nil {
 		return
 	}
 	defer resp.Body.Close()
@@ -370,13 +431,17 @@ func (c *httpClient) getClearResult(ip string, port uint16, method string) (err 
 		req  *http.Request
 		resp *http.Response
 		res  = &httpinfo.Resp{}
+		cli  *http.Client
 	)
 
 	url := fmt.Sprintf("http://%s:%d%s", ip, port, method)
 	if req, err = http.NewRequest("GET", url, nil); err != nil {
 		return
 	}
-	if resp, err = c.cli.Do(req); err != nil {
+	if cli, err = c.getCli(ip, port); err != nil {
+		return
+	}
+	if resp, err = cli.Do(req); err != nil {
 		return
 	}
 	defer resp.Body.Close()
@@ -389,6 +454,42 @@ func (c *httpClient) getClearResult(ip string, port uint16, method string) (err 
 		return
 	}
 
+	return
+}
+
+func (c *httpClient) getHashListResult(ip string, port uint16, method string, hashlist []string) (count []*stat.TxNum, err error) {
+	var (
+		req  *http.Request
+		resp *http.Response
+		res  = &httpinfo.Resp{}
+		data string
+		cli  *http.Client
+		ok   bool
+	)
+
+	reqparam := strings.Join(hashlist, ",")
+	url := fmt.Sprintf("http://%s:%d%s?list=%s", ip, port, method, reqparam)
+	if req, err = http.NewRequest("GET", url, nil); err != nil {
+		return
+	}
+	if cli, err = c.getCli(ip, port); err != nil {
+		return
+	}
+	if resp, err = cli.Do(req); err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	if err = parseResponse(resp.Body, res); err != nil {
+		return
+	}
+	if res.Succeed == false {
+		err = fmt.Errorf("%s", res.Err)
+		return
+	}
+	if data, ok = res.Data.(string); !ok {
+		err = fmt.Errorf("stat count type invalid")
+	}
+	count, err = stat.Parse2TxNumList(data)
 	return
 }
 
@@ -407,10 +508,11 @@ func parseResponse(body io.Reader, res interface{}) error {
 }
 
 type invalidTxWorker struct {
-	pr  *peer.Peer
-	acc *account.Account
-	//dst  chan string
-	//stop chan struct{}
+	pr     *peer.Peer
+	acc    *account.Account
+	list   map[string]struct{}
+	msgNum int64
+	mu     *sync.RWMutex
 }
 
 func NewInvalidTxWorker(remote string) (*invalidTxWorker, error) {
@@ -425,30 +527,19 @@ func NewInvalidTxWorker(remote string) (*invalidTxWorker, error) {
 		return nil, err
 	}
 	return &invalidTxWorker{
-		pr:  pr,
-		acc: acc,
-		//stop: make(chan struct{}),
-		//dst:  make(chan string),
+		pr:     pr,
+		acc:    acc,
+		list:   make(map[string]struct{}),
+		msgNum: 0,
+		mu:     new(sync.RWMutex),
 	}, nil
 }
 
-//
-//func (w *invalidTxWorker) Start() {
-//	for {
-//		select {
-//		case dst := <-w.dst:
-//			if err := w.sendInvalidTxWithoutCheckBalance(dst); err != nil {
-//				_ = log4.Error("%s", err)
-//			}
-//		case <-w.stop:
-//			return
-//		}
-//	}
-//}
-//
-//func (w *invalidTxWorker) Stop() {
-//	close(w.stop)
-//}
+func (w *invalidTxWorker) sendMultiInvalidTx(num int, dest string) {
+	for i := 0; i < num; i++ {
+		go w.sendInvalidTxWithoutCheckBalance(dest)
+	}
+}
 
 func (w *invalidTxWorker) sendInvalidTxWithoutCheckBalance(dest string) (err error) {
 	var (
@@ -461,8 +552,37 @@ func (w *invalidTxWorker) sendInvalidTxWithoutCheckBalance(dest string) (err err
 	}
 
 	// send dump tx
-	err = w.pr.Send(tran)
+	if err = w.pr.Send(tran); err != nil {
+		return
+	}
+
+	// save in list
+	hash := tran.Txn.Hash()
+	w.mu.Lock()
+	w.list[hash.ToHexString()] = struct{}{}
+	atomic.AddInt64(&w.msgNum, 1)
+	w.mu.Unlock()
+
 	return
+}
+
+func (w *invalidTxWorker) getHashList(length int) []string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	list := make([]string, 0)
+	for v, _ := range w.list {
+		list = append(list, v)
+		delete(w.list, v)
+		atomic.AddInt64(&w.msgNum, -1)
+		if len(list) >= length {
+			break
+		}
+	}
+	return list
+}
+
+func (w *invalidTxWorker) getMsgCount() uint64 {
+	return uint64(w.msgNum)
 }
 
 func singleTransfer(remote, jsonrpc, dest string, amount uint64, expire int) error {
@@ -522,4 +642,8 @@ func singleTransfer(remote, jsonrpc, dest string, amount uint64, expire int) err
 	log4.Info("===== after transfer, src %s, dst %s, ", srcafTx.Ont, dstafTx.Ont)
 
 	return nil
+}
+
+func assembleIpAndPort(ip string, port uint16) string {
+	return fmt.Sprintf("%s:%d", ip, port)
 }

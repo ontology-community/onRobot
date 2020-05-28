@@ -68,6 +68,26 @@ func (s *TxStat) Stat() (string, error) {
 	return string(bz), nil
 }
 
+func (s *TxStat) GetAndClearMulti(hashList []string) (string, error) {
+	s.mu.Lock()
+	list := make([]*TxNum, 0)
+	for _, hash := range hashList {
+		if tx, ok := s.data[hash]; ok {
+			list = append(list, tx)
+			delete(s.data, hash)
+		} else {
+			list = append(list, &TxNum{Hash: hash, Send: 0, Recv: 0})
+		}
+	}
+	s.mu.Unlock()
+
+	bz, err := json.Marshal(list)
+	if err != nil {
+		return "", err
+	}
+	return string(bz), nil
+}
+
 func (s *TxStat) Clear() {
 	s.mu.Lock()
 	s.data = make(map[string]*TxNum)
