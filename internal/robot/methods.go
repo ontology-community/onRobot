@@ -757,7 +757,7 @@ func TxCount() bool {
 	statTicker := time.NewTicker(time.Duration(params.StatTicker) * time.Second)
 
 	go func() {
-		for worker.msgNum < params.MsgNumber {
+		for worker.getMsgCount() < params.MsgNumber {
 			select {
 			case <-sendTicker.C:
 				worker.sendMultiInvalidTx(params.TxPerSec, params.DestAccount)

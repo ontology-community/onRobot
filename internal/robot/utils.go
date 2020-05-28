@@ -43,7 +43,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -508,11 +507,10 @@ func parseResponse(body io.Reader, res interface{}) error {
 }
 
 type invalidTxWorker struct {
-	pr     *peer.Peer
-	acc    *account.Account
-	list   map[string]struct{}
-	msgNum int64
-	mu     *sync.RWMutex
+	pr   *peer.Peer
+	acc  *account.Account
+	list map[string]struct{}
+	mu   *sync.RWMutex
 }
 
 func NewInvalidTxWorker(remote string) (*invalidTxWorker, error) {
@@ -527,11 +525,10 @@ func NewInvalidTxWorker(remote string) (*invalidTxWorker, error) {
 		return nil, err
 	}
 	return &invalidTxWorker{
-		pr:     pr,
-		acc:    acc,
-		list:   make(map[string]struct{}),
-		msgNum: 0,
-		mu:     new(sync.RWMutex),
+		pr:   pr,
+		acc:  acc,
+		list: make(map[string]struct{}),
+		mu:   new(sync.RWMutex),
 	}, nil
 }
 
@@ -560,7 +557,6 @@ func (w *invalidTxWorker) sendInvalidTxWithoutCheckBalance(dest string) (err err
 	hash := tran.Txn.Hash()
 	w.mu.Lock()
 	w.list[hash.ToHexString()] = struct{}{}
-	atomic.AddInt64(&w.msgNum, 1)
 	w.mu.Unlock()
 
 	return
@@ -573,7 +569,6 @@ func (w *invalidTxWorker) getHashList(length int) []string {
 	for v, _ := range w.list {
 		list = append(list, v)
 		delete(w.list, v)
-		atomic.AddInt64(&w.msgNum, -1)
 		if len(list) >= length {
 			break
 		}
@@ -581,8 +576,11 @@ func (w *invalidTxWorker) getHashList(length int) []string {
 	return list
 }
 
-func (w *invalidTxWorker) getMsgCount() uint64 {
-	return uint64(w.msgNum)
+func (w *invalidTxWorker) getMsgCount() int64 {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	num := len(w.list)
+	return int64(num)
 }
 
 func singleTransfer(remote, jsonrpc, dest string, amount uint64, expire int) error {
