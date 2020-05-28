@@ -20,6 +20,9 @@ build-node:
 	cp cmd/p2pnode/config.json target/node/config.json
 	$(GOBUILD) -o target/node/node cmd/p2pnode/main.go
 
+build-linux-node:
+	GOOS=linux GOARCH=amd64 $(GOBUILD) -o target/node/linux-node cmd/p2pnode/main.go
+
 robot:
 	@echo test case $(t)
 	./target/robot/robot -config=target/robot/config.json \

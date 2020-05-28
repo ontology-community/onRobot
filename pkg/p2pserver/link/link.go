@@ -155,7 +155,7 @@ func (this *Link) SendRaw(rawPacket []byte) error {
 		return errors.New("[p2p]tx link invalid")
 	}
 	nByteCnt := len(rawPacket)
-	log4.Trace("[p2p]TX buf length: %d\n", nByteCnt)
+	//log4.Trace("[p2p]TX buf length: %d\n", nByteCnt)
 
 	nCount := nByteCnt / common.PER_SEND_LEN
 	if nCount == 0 {

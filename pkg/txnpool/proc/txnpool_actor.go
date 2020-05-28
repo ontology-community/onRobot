@@ -53,7 +53,8 @@ func (ta *TxActor) handleTransaction(txn *types.Transaction) {
 		log4.Error("%s", err)
 		return
 	}
-
+	hash := txn.Hash()
+	log4.Trace("txpool-tx actor received tx %s", hash.ToHexString())
 	msg := msgpack.NewTxn(txn)
 	go ta.server.Net.Broadcast(msg)
 }

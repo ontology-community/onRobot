@@ -59,7 +59,7 @@ func initP2PNode(txpoolSvr *proc.TXPoolServer, handler p2p.Protocol) (*p2pserver
 	netreqactor.SetTxnPoolPid(txpoolSvr.GetPID())
 	txpoolSvr.Net = p2p.GetNetwork()
 	//hserver.SetNetServer(p2p)
-	p2p.WaitForPeersStart()
+	//p2p.WaitForPeersStart()
 	log4.Info("P2P init success")
 	return p2p, nil
 }

@@ -196,6 +196,7 @@ func TransactionHandle(ctx *p2p.Context, trn *msgTypes.Trn) {
 	if !txCache.Contains(trn.Txn.Hash()) {
 		txCache.Add(trn.Txn.Hash(), nil)
 		actor.AddTransaction(trn.Txn)
+		log4.Trace("[p2p]receive Transaction message, txHash: %x\n", trn.Txn.Hash())
 	} else {
 		log4.Trace("[p2p]receive duplicate Transaction message, txHash: %x\n", trn.Txn.Hash())
 	}
