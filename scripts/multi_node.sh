@@ -1,21 +1,17 @@
-#!/bin/sh
+#!/bin/bash
+
+. const.sh
 
 killall -9 p2pnode
 
-# set test case var
-num=8
-workspace=/home/ubuntu/ontology/node/dht
-
-# set http and p2p port config
-startHttpPort=30000
-startNodePort=40000
-
 # prepare
 cd ${workspace}
+rm -rf *.log
 rm -rf log
-mkdir log
-rm -rf ${workspace}/p2pnode*
 rm -rf nohup.out
+rm -rf p2pnode
+mkdir log
+
 cp ${workspace}/node/config.json config.json
 cp ${workspace}/node/log4go.xml log4go.xml
 cp ${workspace}/node/node p2pnode
