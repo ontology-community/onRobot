@@ -5,7 +5,6 @@ killall -9 p2pnode
 # set test case var
 num=8
 workspace=/home/ubuntu/ontology/node/dht
-#workspace=/Users/dylen/workspace/gohome/src/github.com/ontology-community/onRobot/target
 
 # set http and p2p port config
 startHttpPort=30000

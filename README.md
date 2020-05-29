@@ -31,7 +31,7 @@ cmd/robot/
 
 构建
 ```bash
-make build
+make build-robot
 ```
 运行
 ```bash
@@ -373,19 +373,40 @@ a、node配置:
 b、txCount测试用例配置参数
 {
   "IpList": [
-    "127.0.0.1"
+    "172.168.3.151",
+    ......
+    "172.168.3.152",
   ],
-  "StartHttpPort": 10031,
-  "EndHttpPort": 10036,
-  "Remote": "127.0.0.1:20031",
+  "StartHttpPort": 30001,
+  "EndHttpPort": 30003,
+  "Remote": "172.168.3.151:40001",
   "DestAccount": "AWoQ8oFXXz9EwGBTP2mncqe5ngr1VnKagZ",
-  "DispatchTime": 10
+  "SendTicker": 1,
+  "StatTicker": 10,
+  "TxPerSec": 2,
+  "TxPerStat": 10,
+  "MsgNumber": 30,
+  "StatAfterDuration": 20,
+  "Mysql": {
+    "Ip": "172.168.3.219",
+    "Port": 3306,
+    "User": "root",
+    "Pwd": "123456",
+    "Db": "txstat"
+  }
 }
 因为需要用到多台机器，多个端口构造尽可能多的轻节点，这里我们提供了一个ip列表，
 StartHttpPort到EndHttpPort都对应某个ip下的轻节点统计服务。
-remote是某个节点的p2p地址，
+remote是某个节点的p2p地址，robot通过往这个节点发送消息，实现消息在整个网络的流转。
 DestAccount用于构造一笔交易(统计tx时，测试用例构造并发送Tx，该tx为一笔无法完成的转账)，
-DispatchTime表示测试用例持续时间，单位为sec，测试用例每秒发送一笔交易并查询一次统计数据.
+SendTicker 消息发送间隔
+StatTicker 消息统计间隔，统计数据存储到数据库
+TxPerSec   每次发送消息数量
+TxPerStat  每次统计消息数量
+MsgNumber  发送的消息总量
+StatAfterDuration 统计滞后于消息发送
+Mysql      数据库配置
+具体网络节点的使用参见 doc/p2pnode.md
 结果:
 以6个节点，持续10s为例
 [2020/05/26 10:44:50 CST] [INFO] send tx number 5, recv tx number 5
