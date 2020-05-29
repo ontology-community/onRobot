@@ -13,11 +13,11 @@ p2p轻节点，用于观察验证消息在网络中流转状况，包含以下�
 tree cmd/p2pnode/
 cmd/p2pnode/
 ├── config.json
-├── main.go
-└── wallet.dat
-0 directories, 3 files
+└── main.go
+
+0 directories, 2 files
 ```
-其中，wallet.dat用于构造转账, config.json是配置文件, 参考ontology config.json
+其中，config.json是配置文件, 参考ontology config.json
 
 #### build
 ```bash

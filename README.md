@@ -327,49 +327,7 @@ b、测试前后查询余额账户，只转出一笔
 #### 14.txCount
 ```dtd
 条件:
-a、使用make build-node构建轻节点，根据命令行参数运行多个节点, 如:
-./node -config=config.json -log=log4go.xml -httpport=10032 -nodeport=20032
-其中httpport用于访问统计数据，nodeport为p2p端口.
-参数:
-a、node配置:
-{
-  "GasPrice":0,
-  "GasLimit":20000,
-  "Net":{
-    "ReservedPeersOnly":false,
-    "ReservedCfg":{
-      "reserved":[
-        "1.2.3.4",
-        "1.2.3.5"
-      ],
-      "mask":[
-        "172.168.3.151",
-        "172.168.3.152",
-        "172.168.3.153",
-        "172.168.3.154",
-        "172.168.3.155",
-        "172.168.3.156",
-        "172.168.3.157"
-      ]
-    },
-    "NetworkMagic":299,
-    "NetworkId":299,
-    "NetworkName":"",
-    "IsTLS":false,
-    "MaxHdrSyncReqs":1024,
-    "MaxConnInBound":1024,
-    "MaxConnOutBound":1024,
-    "MaxConnInBoundForSingleIP":1024
-  },
-  "SeedList": [
-    "127.0.0.1:20031",
-    "127.0.0.1:20032",
-    "127.0.0.1:20033",
-    "127.0.0.1:20034",
-    "127.0.0.1:20035",
-    "127.0.0.1:20036"
-  ]
-}
+a、具体网络节点的使用参见 doc/p2pnode.md
 b、txCount测试用例配置参数
 {
   "IpList": [
@@ -406,7 +364,6 @@ TxPerStat  每次统计消息数量
 MsgNumber  发送的消息总量
 StatAfterDuration 统计滞后于消息发送
 Mysql      数据库配置
-具体网络节点的使用参见 doc/p2pnode.md
 结果:
 以6个节点，持续10s为例
 [2020/05/26 10:44:50 CST] [INFO] send tx number 5, recv tx number 5
