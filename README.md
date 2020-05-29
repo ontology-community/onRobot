@@ -35,11 +35,11 @@ make build-robot
 ```
 运行
 ```bash
-make run t=demo
+make robot t=demo
 ```
 也支持批量测试
 ```bash
-make run t=transferOnt,doubleSpend
+make robot t=transferOnt,doubleSpend
 ```
 
 ## 测试用例
