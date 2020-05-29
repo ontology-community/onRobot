@@ -3,9 +3,9 @@
 killall -9 p2pnode
 
 # set test case var
-num=3
-#workspace=/home/ubuntu/ontology/node/dht
-workspace=/Users/dylen/workspace/gohome/src/github.com/ontology-community/onRobot/target
+num=8
+workspace=/home/ubuntu/ontology/node/dht
+#workspace=/Users/dylen/workspace/gohome/src/github.com/ontology-community/onRobot/target
 
 # set http and p2p port config
 startHttpPort=30000
@@ -41,4 +41,4 @@ done
 echo "all started!"
 
 # stat started p2pnodes number
-ps -ef|grep p2pnode|wc -l
+ps -ef|grep p2pnode|grep -v grep|wc -l

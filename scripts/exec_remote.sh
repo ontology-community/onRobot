@@ -23,6 +23,7 @@ read func
 run() {
 for ip in ${ipList}; do
 	ssh root@${ip} "cd /home/ubuntu/ontology/node/dht; ./multi_node.sh"
+	echo "${ip} nodes all started!"
 done
 }
 
@@ -35,8 +36,8 @@ done
 # 统计节点数量
 count() {
 for ip in ${ipList}; do
-    echo ${ip}
-	ssh root@$ip "ps -ef|grep p2pnode|wc -l"
+    echo "${ip} node number:"
+	ssh root@$ip "ps -ef|grep p2pnode|grep -v grep|wc -l"
 done
 }
 
