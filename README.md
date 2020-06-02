@@ -400,6 +400,7 @@ Mysql      数据库配置
 通过coredns设置reserve1.ontsnip.com为172.168.3.158, reserve2.ontsnip.com为172.168.3.162
 在172.168.3.165机器上配置dns服务器，启动服务后，查询邻结点.
 通过p2p网络发送FindNodeReq,查询邻结表，直到找到符合预期的节点ip
+coredns的使用参见doc/coredns.md
 参数:
 {
   "Remote": "172.168.3.165:20338",
@@ -411,6 +412,3 @@ Mysql      数据库配置
 结果:
 可以找到reserve列表内的节点
 ```
-
-## 其他
-* 节点reserve测试，需要用到dns解析(具体见doc/coredns.md)，此外节点配置文件需在reserve列表添加对应域名
