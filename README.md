@@ -411,3 +411,6 @@ Mysql      数据库配置
 结果:
 可以找到reserve列表内的节点
 ```
+
+## 其他
+* 节点reserve测试，需要用到dns解析(具体见doc/coredns.md)，此外节点配置文件需在reserve列表添加对应域名
