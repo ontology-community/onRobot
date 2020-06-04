@@ -39,24 +39,22 @@ nodePort=yourNodePort
 ```dtd
 tree scripts
 scripts/
+├── const.sh
 ├── exec_remote.sh
 ├── multi_node.sh
 └── scp.sh
 
 0 directories, 3 files
 ```
+* const.sh 包含服务器集群ip列表，workspace工作目录(包含构建后生成的target/node目录)，节点数num，http起始端口startHttpPort，p2p起始端口startNodePort
 * scp.sh 上传文件到测试节点集群，可自行修改集群ip列表
 * multi_node.sh 在单台机器上运行多个节点，在脚本中修改下列参数, 
-num为节点数，workspace为工作目录，startHttpPort为http起始端口，startNodePort为p2p起始端口
-```bash
-num=8
-workspace=/home/ubuntu/ontology/node/dht
-startHttpPort=30000
-startNodePort=40000
-```
 * exec_remote.sh 用于运行远程服务器上进程，输入不同方法名实现相关功能:
 1. run 运行远端multi_node.sh脚本
 2. kill 停止所有p2p节点
 3. count 统计p2p节点数量
 4. single 当单个节点停止时，启动单个节点
 通过修改脚本ipList确定集群，修改single中使用到的ip，idx等参数启动单个节点
+
+## notice
+* 在使用脚本前，需要将本机pubkey添加到到服务器root用户authroizedKeys
