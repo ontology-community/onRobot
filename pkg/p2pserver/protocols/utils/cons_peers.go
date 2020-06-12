@@ -36,26 +36,6 @@ type GovNodeResolver interface {
 	IsGovNode(key keypair.PublicKey) bool
 }
 
-type GovNodeMockResolver struct {
-	govNode map[string]struct{}
-}
-
-func NewGovNodeMockResolver(gov []string) *GovNodeMockResolver {
-	govNode := make(map[string]struct{}, len(gov))
-	for _, node := range gov {
-		govNode[node] = struct{}{}
-	}
-
-	return &GovNodeMockResolver{govNode}
-}
-
-func (self *GovNodeMockResolver) IsGovNode(key keypair.PublicKey) bool {
-	pubKey := vconfig.PubkeyID(key)
-	_, ok := self.govNode[pubKey]
-
-	return ok
-}
-
 type GovNodeLedgerResolver struct {
 	db   *ledger.Ledger
 	view uint32
