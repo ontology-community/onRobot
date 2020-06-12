@@ -1,6 +1,6 @@
 {
   "Remote": "172.168.3.162:20338",
-  "InitBlockHeight":11000,
+  "InitBlockHeight":1145,
   "DispatchTime": 20,
   "StartHash": "d9561c3cfabb06b2df6702c3e278501e9d5545db252fdd40992b4da25ca99a91",
   "EndHash": "d9561c3cfabb06b2df6702c3e278501e9d5545db252fdd40992b4da25ca99a90"

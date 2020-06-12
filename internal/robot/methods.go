@@ -48,7 +48,7 @@ func Demo() bool {
 		log.Error(err)
 		return false
 	}
-	log.Info("jsonrpcAddr %s current block height %d", jsonrpcAddr, height)
+	log.Infof("jsonrpcAddr %s current block height %d", jsonrpcAddr, height)
 
 	// recover kp
 	acc, err := sdk.RecoverAccount(conf.TransferWalletPath, conf.DefConfig.WalletPwd)
@@ -56,7 +56,7 @@ func Demo() bool {
 		log.Error(err)
 		return false
 	}
-	log.Info("address %s", acc.Address.ToBase58())
+	log.Infof("address %s", acc.Address.ToBase58())
 
 	// get balance
 	resp, err := sdk.GetBalance(jsonrpcAddr, acc.Address)
@@ -99,7 +99,7 @@ func FakePeerID() bool {
 		log.Error(err)
 	} else {
 		pid := ns.GetID()
-		log.Debugf("%s connected", pid.ToHexString())
+		log.Infof("%s connected", pid.ToHexString())
 	}
 
 	Dispatch(params.DispatchTime)
@@ -129,14 +129,16 @@ func Connect() bool {
 	// 4. connect and handshake
 	remotePeer, err := ns.ConnectAndReturnPeer(params.Remote)
 	if err != nil {
-		log.Debug("connecting to %s failed, err: %s", params.Remote, err)
+		log.Errorf("connecting to %s failed, err: %s", params.Remote, err)
 		return false
 	}
+
+	time.Sleep(5 * time.Second)
 
 	// 5. calculate distance
 	cpl := distance(ns.GetID(), remotePeer.GetID())
 
-	log.Info("handshake end success, cpl is %d", cpl)
+	log.Infof("handshake end success, cpl is %d", cpl)
 
 	return true
 }
@@ -213,17 +215,17 @@ func HandshakeTimeout() bool {
 	pr.SetHandshakeClientTimeout(params.ClientBlockTime)
 	pr.SetHandshakeServerTimeout(params.ServerBlockTime)
 	if err := ns.Connect(params.Remote); err != nil {
-		log.Debugf("connecting to %s failed, err: %s", params.Remote, err)
+		log.Errorf("connecting to %s failed, err: %s", params.Remote, err)
 	} else {
 		log.Info("handshake success!")
 		return true
 	}
 
 	for i := 0; i < params.Retry; i++ {
-		log.Debug("connecting retry cnt %d", i)
+		log.Infof("connecting retry cnt %d", i)
 		pr.SetHandshakeClientTimeout(0)
 		if err := ns.Connect(params.Remote); err != nil {
-			log.Debugf("connecting to %s failed, err: %s", params.Remote, err)
+			log.Infof("connecting to %s failed, err: %s", params.Remote, err)
 		} else {
 			log.Info("handshake success!")
 			return true
@@ -344,14 +346,14 @@ func ResetPeerID() bool {
 		return false
 	}
 	oldPeerID := ns.GetID()
-	log.Debug("old peerID %s", oldPeerID.ToHexString())
+	log.Infof("old peerID %s", oldPeerID.ToHexString())
 
 	if err := ns.ResetRandomPeerID(); err != nil {
 		log.Error(err)
 		return false
 	}
 	newPeerID := ns.GetID()
-	log.Debug("new peerID %s", newPeerID.ToHexString())
+	log.Infof("new peerID %s", newPeerID.ToHexString())
 	if err := ns.Connect(params.Remote); err != nil {
 		log.Errorf("connecting to %s failed, err: %s", params.Remote, err)
 		return true
@@ -387,7 +389,7 @@ func DDos() bool {
 		log.Error(err)
 		return false
 	} else {
-		log.Debug("block height before ddos %d", height)
+		log.Infof("block height before ddos %d", height)
 	}
 
 	pr.SetHeartbeatTestBlockHeight(params.InitBlockHeight)
@@ -399,7 +401,7 @@ func DDos() bool {
 		if err := ns.Connect(params.Remote); err != nil {
 			log.Errorf("peer %s connecting to %s failed, err: %s", peerID.ToHexString(), params.Remote, err)
 		} else {
-			log.Debug("peer %s, index %d connecting to %s success", peerID.ToHexString(), int(port)-params.StartPort, params.Remote)
+			log.Infof("peer %s, index %d connecting to %s success", peerID.ToHexString(), int(port)-params.StartPort, params.Remote)
 		}
 	}
 
@@ -446,12 +448,12 @@ func AskFakeBlocks() bool {
 
 	// Dispatch
 	if msg := protocol.Out(params.DispatchTime); msg != nil {
-		log.Debugf("invalid block endHash accepted by sync node, msg %v", msg)
+		log.Errorf("invalid block endHash accepted by sync node, msg %v", msg)
 		return false
-	} else {
-		log.Info("invalid block endHash rejected by sync node")
-		return true
 	}
+
+	log.Info("invalid block endHash rejected by sync node")
+	return true
 }
 
 // 非法交易攻击
@@ -553,21 +555,10 @@ func AttackTxPool() bool {
 			log.Errorf("get %s mem pool tx count err: %s", jsonrpc, err)
 		} else {
 			for i, v := range list {
-				log.Debugf("get %s mem pool tx count %d %d", jsonrpc, i, v)
+				log.Infof("get %s mem pool tx count %d %d", jsonrpc, i, v)
 			}
 		}
 	}
-	//for _, jsonrpc := range params.JsonRpcList {
-	//	for _, tx := range transList {
-	//		hash := tx.Txn.Hash()
-	//		tx, err := params.GetTxByHash(jsonrpc, hash)
-	//		if tx != nil || err == nil {
-	//			_ = log.Warn("invalid tx persisted in txn pool")
-	//		} else {
-	//			log.Debug("node %s txnpool without tx %s", jsonrpc, hash.ToHexString())
-	//		}
-	//	}
-	//}
 
 	// get current block height
 	curBlkHeightList, err := GetBlockHeightList(params.JsonRpcList)
@@ -585,7 +576,7 @@ func AttackTxPool() bool {
 			log.Errorf("node %s, block height %d < %d", node, dif, params.MinExpectedBlkHeightDiff)
 			return false
 		} else {
-			log.Info("current block height %d, pre block height %d, diff %d", cur, pre, dif)
+			log.Infof("current block height %d, pre block height %d, diff %d", cur, pre, dif)
 		}
 	}
 
@@ -605,7 +596,7 @@ func DoubleSpend() bool {
 		return false
 	}
 	if len(params.RemoteList) != len(params.JsonRpcList) {
-		log.Errorf("remote list length != json rpc list length")
+		log.Error("remote list length != json rpc list length")
 		return false
 	}
 
@@ -687,7 +678,7 @@ func DoubleSpend() bool {
 				sink := ontcm.NewZeroCopySink(bz)
 				payload := curtx.Payload
 				payload.Serialization(sink)
-				log.Debug("===== node %s, succeed preTx %s, payload %s", jsonrpc, prehash.ToHexString(), string(bz))
+				log.Infof("===== node %s txpool, succeed preTx %s, payload %s", jsonrpc, prehash.ToHexString(), string(bz))
 			}
 		}
 	}
@@ -775,7 +766,7 @@ func TxCount() bool {
 			hashlist := worker.getHashList(params.TxPerStat)
 			list := cli.statHashList(hashlist)
 			for _, v := range list {
-				log.Debugf("get stat transaction %s, ip %s, port %d, hash %s, send %d, recv %d",
+				log.Infof("get stat transaction %s, ip %s, port %d, hash %s, send %d, recv %d",
 					v.Hash, v.Ip, v.Port, v.Hash, v.Send, v.Recv)
 				if err := dao.InsertStat(v.Ip, v.Port, v.Hash, v.Send, v.Recv); err != nil {
 					log.Errorf("save record in db err :%s", err)

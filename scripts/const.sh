@@ -23,6 +23,7 @@ num=2
 
 # set worksapce which contain target/node
 workspace=/home/ubuntu/ontology/node/dht
+walletpwd=123456
 
 # set http and p2p port config
 startHttpPort=30000

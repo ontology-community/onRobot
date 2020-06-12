@@ -42,7 +42,7 @@ type P2PServer struct {
 func NewServer(acct *account.Account) (*P2PServer, error) {
 	logger := log.Log
 	protocol := protocols.NewMsgHandler(acct, ledger.DefLedger, logger)
-	n, err := netserver.NewNetServer(protocol, config.DefConfig.P2PNode, logger)
+	n, err := netserver.NewNetServer(protocol, config.DefConfig.P2PNode)
 	if err != nil {
 		return nil, err
 	}
@@ -54,8 +54,8 @@ func NewServer(acct *account.Account) (*P2PServer, error) {
 	return p, nil
 }
 
-func NewStatServer(protocol p2pnet.Protocol, conf *config.P2PNodeConfig, logger common.Logger) (*P2PServer, error) {
-	n, err := netserver.NewNetServerWithTxStat(protocol, conf, logger)
+func NewStatServer(protocol p2pnet.Protocol, conf *config.P2PNodeConfig) (*P2PServer, error) {
+	n, err := netserver.NewNetServerWithTxStat(protocol, conf)
 	if err != nil {
 		return nil, err
 	}

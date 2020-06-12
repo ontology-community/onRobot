@@ -93,7 +93,7 @@ func (this *HeartBeat) ping() {
 	height := this.height
 	ping := msgpack.NewPingMsg(uint64(height))
 	go this.net.Broadcast(ping)
-	log.Debugf("[p2p]send ping msg height %d", height)
+	log.Infof("[p2p]send ping msg height %d", height)
 }
 
 //timeout trace whether some peer be long time no response
@@ -113,7 +113,7 @@ func (this *HeartBeat) timeout() {
 func (this *HeartBeat) PingHandle(ctx *p2p.Context, ping *types.Ping) {
 	// mark:
 	if this.NeedInterrupt(false) {
-		log.Debug("[p2p]interrupt pong...")
+		log.Info("[p2p]interrupt pong...")
 		return
 	}
 

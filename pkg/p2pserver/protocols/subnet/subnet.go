@@ -109,6 +109,7 @@ func (self *SubNet) OnDelPeer(info *peer.PeerInfo) {
 		member.Alive = time.Now()
 	}
 }
+
 func (self *SubNet) IpInMembers(ip string) bool {
 	self.lock.RLock()
 	defer self.lock.RUnlock()

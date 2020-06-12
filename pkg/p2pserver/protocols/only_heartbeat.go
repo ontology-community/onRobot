@@ -86,8 +86,6 @@ func (self *OnlyHeartbeatMsgHandler) HandlePeerMessage(ctx *p2p.Context, msg msg
 		msgType := msg.CmdType()
 		if msgType == msgCommon.VERACK_TYPE || msgType == msgCommon.VERSION_TYPE {
 			log.Infof("receive message: %s from peer %s", msgType, ctx.Sender().GetAddr())
-		} else {
-			log.Warnf("unknown message handler for the recvCh: %s", msgType)
 		}
 	}
 }

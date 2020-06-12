@@ -80,7 +80,7 @@ func reset() {
 func GenerateNetServerWithProtocol(protocol p2p.Protocol) (ns *netserver.NetServer) {
 	var err error
 
-	if ns, err = netserver.NewNetServer(protocol, conf.DefConfig.Net, logger); err != nil {
+	if ns, err = netserver.NewNetServer(protocol, conf.DefConfig.Net); err != nil {
 		log.Fatalf("[NewNetServer] crashed, err %s", err)
 	}
 	if err = ns.Start(); err != nil {
@@ -95,7 +95,7 @@ func GenerateNetServerWithContinuePort(protocol p2p.Protocol, port uint16) (ns *
 	var err error
 
 	conf.DefConfig.Net.NodePort = port
-	if ns, err = netserver.NewNetServer(protocol, conf.DefConfig.Net, logger); err != nil {
+	if ns, err = netserver.NewNetServer(protocol, conf.DefConfig.Net); err != nil {
 		log.Fatalf("[NewNetServer] crashed, err %s", err)
 		return nil
 	}
@@ -108,7 +108,7 @@ func GenerateNetServerWithContinuePort(protocol p2p.Protocol, port uint16) (ns *
 
 func GenerateNetServerWithFakeKid(protocol p2p.Protocol, kid *p2pcm.PeerKeyId) (ns *netserver.NetServer) {
 	var err error
-	if ns, err = netserver.NewNetServerWithKid(protocol, conf.DefConfig.Net, kid, logger); err != nil {
+	if ns, err = netserver.NewNetServerWithKid(protocol, conf.DefConfig.Net, kid); err != nil {
 		log.Fatalf("[NewNetServer] crashed, err %s", err)
 		return nil
 	}
