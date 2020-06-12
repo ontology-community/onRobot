@@ -19,12 +19,14 @@
 package protocols
 
 import (
-	log4 "github.com/alecthomas/log4go"
+	"time"
+
+	"github.com/ontio/ontology/common/log"
+
 	msgCommon "github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	msgTypes "github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/heatbeat"
-	"time"
 )
 
 type RemoteMessage struct {
@@ -57,16 +59,16 @@ func (self *OnlyHeartbeatMsgHandler) HandleSystemMessage(net p2p.P2P, msg p2p.Sy
 	case p2p.NetworkStart:
 		self.start(net)
 	case p2p.PeerConnected:
-		log4.Debug("peer connected, address: %s, id %d", m.Info.Addr, m.Info.Id.ToUint64())
+		log.Debugf("peer connected, address: %s, id %d", m.Info.Addr, m.Info.Id.ToUint64())
 	case p2p.PeerDisConnected:
-		log4.Debug("peer disconnected, address: %s, id %d", m.Info.Addr, m.Info.Id.ToUint64())
+		log.Debugf("peer disconnected, address: %s, id %d", m.Info.Addr, m.Info.Id.ToUint64())
 	case p2p.NetworkStop:
 		self.stop()
 	}
 }
 
 func (self *OnlyHeartbeatMsgHandler) HandlePeerMessage(ctx *p2p.Context, msg msgTypes.Message) {
-	log4.Trace("[p2p]receive message, remote address %s, id %d, type %s", ctx.Sender().GetAddr(), ctx.Sender().GetID().ToUint64(), msg.CmdType())
+	log.Tracef("[p2p]receive message, remote address %s, id %d, type %s", ctx.Sender().GetAddr(), ctx.Sender().GetID().ToUint64(), msg.CmdType())
 	switch m := msg.(type) {
 	case *msgTypes.Ping:
 		self.heatBeat.PingHandle(ctx, m)
@@ -79,15 +81,19 @@ func (self *OnlyHeartbeatMsgHandler) HandlePeerMessage(ctx *p2p.Context, msg msg
 	case *msgTypes.Trn:
 		self.TranHandler(ctx, m)
 	case *msgTypes.NotFound:
-		log4.Debug("[p2p]receive notFound message, hash is %s", m.Hash.ToHexString())
+		log.Debugf("[p2p]receive notFound message, hash is %s", m.Hash.ToHexString())
 	default:
 		msgType := msg.CmdType()
 		if msgType == msgCommon.VERACK_TYPE || msgType == msgCommon.VERSION_TYPE {
-			log4.Info("receive message: %s from peer %s", msgType, ctx.Sender().GetAddr())
+			log.Infof("receive message: %s from peer %s", msgType, ctx.Sender().GetAddr())
 		} else {
-			_ = log4.Warn("unknown message handler for the recvCh: %s", msgType)
+			log.Warnf("unknown message handler for the recvCh: %s", msgType)
 		}
 	}
+}
+
+func (self *OnlyHeartbeatMsgHandler) GetReservedAddrFilter() p2p.AddressFilter {
+	return nil
 }
 
 func (self *OnlyHeartbeatMsgHandler) BlockHeaderHandler(ctx *p2p.Context, msg *msgTypes.BlkHeader) {

@@ -10,25 +10,16 @@
  * The ontology is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
  * along with The ontology.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package types
+package common
 
-import (
-	"testing"
-
-	cm "github.com/ontio/ontology/common"
-)
-
-func TestBlkReqSerializationDeserialization(t *testing.T) {
-	var msg BlocksReq
-	msg.HeaderHashCount = 1
-
-	hashstr := "8932da73f52b1e22f30c609988ed1f693b6144f74fed9a2a20869afa7abfdf5e"
-	msg.HashStart, _ = cm.Uint256FromHexString(hashstr)
-
-	MessageTest(t, &msg)
+type SubnetMemberInfo struct {
+	PubKey     string `json:"pubKey"`
+	ListenAddr string `json:"listenAddr"`
+	Connected  bool   `json:"connected"`
 }

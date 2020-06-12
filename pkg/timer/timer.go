@@ -19,9 +19,10 @@
 package timer
 
 import (
-	log4 "github.com/alecthomas/log4go"
 	"sync"
 	"time"
+
+	"github.com/ontio/ontology/common/log"
 )
 
 const (
@@ -270,6 +271,6 @@ const debugOpen = false
 
 func debug(format string, args ...interface{}) {
 	if debugOpen {
-		log4.Debug(format, args...)
+		log.Debugf(format, args...)
 	}
 }

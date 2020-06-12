@@ -19,13 +19,15 @@
 package robot
 
 import (
-	core "github.com/ontology-community/onRobot/pkg/frame"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/params"
 	"math/rand"
 	"time"
+
+	core "github.com/ontology-community/onRobot/pkg/frame"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/params"
 )
 
 func init() {
+	initLogger()
 	rand.Seed(time.Now().UnixNano())
 	params.InitializeTestParams()
 

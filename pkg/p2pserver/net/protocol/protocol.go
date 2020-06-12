@@ -43,6 +43,7 @@ func (self *Context) Network() P2P {
 type Protocol interface {
 	HandlePeerMessage(ctx *Context, msg types.Message)
 	HandleSystemMessage(net P2P, msg SystemMessage)
+	GetReservedAddrFilter() AddressFilter
 }
 
 type SystemMessage interface {
@@ -69,4 +70,9 @@ type NetworkStart struct {
 
 type NetworkStop struct {
 	implSystemMessage
+}
+
+type HostAddrDetected struct {
+	implSystemMessage
+	ListenAddr string
 }

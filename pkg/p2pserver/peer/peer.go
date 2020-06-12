@@ -27,8 +27,8 @@ import (
 	"sync"
 	"time"
 
-	log4 "github.com/alecthomas/log4go"
 	comm "github.com/ontio/ontology/common"
+	"github.com/ontio/ontology/common/log"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	conn "github.com/ontology-community/onRobot/pkg/p2pserver/link"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
@@ -85,16 +85,11 @@ type Peer struct {
 }
 
 //NewPeer return new peer without publickey initial
-func NewPeer() *Peer {
-	p := &Peer{
-		Info: &PeerInfo{},
-		Link: conn.NewLink(),
+func NewPeer(info *PeerInfo, c net.Conn, msgChan chan *types.MsgPayload) *Peer {
+	return &Peer{
+		Info: info,
+		Link: conn.NewLink(info.Id, c, msgChan),
 	}
-	return p
-}
-
-func (self *Peer) SetInfo(info *PeerInfo) {
-	self.Info = info
 }
 
 func (self *PeerInfo) String() string {
@@ -103,15 +98,15 @@ func (self *PeerInfo) String() string {
 
 //DumpInfo print all information of peer
 func (this *Peer) DumpInfo() {
-	log4.Debug("[p2p]Node Info:")
-	log4.Debug("[p2p]\t id = ", this.GetID())
-	log4.Debug("[p2p]\t addr = ", this.Info.Addr)
-	log4.Debug("[p2p]\t version = ", this.GetVersion())
-	log4.Debug("[p2p]\t services = ", this.GetServices())
-	log4.Debug("[p2p]\t port = ", this.GetPort())
-	log4.Debug("[p2p]\t relay = ", this.GetRelay())
-	log4.Debug("[p2p]\t height = ", this.GetHeight())
-	log4.Debug("[p2p]\t softVersion = ", this.GetSoftVersion())
+	log.Debug("[p2p]Node Info:")
+	log.Debug("[p2p]\t id = ", this.GetID())
+	log.Debug("[p2p]\t addr = ", this.Info.Addr)
+	log.Debug("[p2p]\t version = ", this.GetVersion())
+	log.Debug("[p2p]\t services = ", this.GetServices())
+	log.Debug("[p2p]\t port = ", this.GetPort())
+	log.Debug("[p2p]\t relay = ", this.GetRelay())
+	log.Debug("[p2p]\t height = ", this.GetHeight())
+	log.Debug("[p2p]\t softVersion = ", this.GetSoftVersion())
 }
 
 //GetVersion return peer`s version
@@ -136,10 +131,7 @@ func (this *Peer) GetPort() uint16 {
 
 //SendTo call sync link to send buffer
 func (this *Peer) SendRaw(msgType string, msgPayload []byte) error {
-	if this.Link != nil && this.Link.Valid() {
-		return this.Link.SendRaw(msgPayload)
-	}
-	return errors.New("[p2p]sync link invalid")
+	return this.Link.SendRaw(msgPayload)
 }
 
 //Close halt sync connection
@@ -166,12 +158,13 @@ func (this *Peer) GetServices() uint64 {
 
 //GetTimeStamp return peer`s latest contact time in ticks
 func (this *Peer) GetTimeStamp() int64 {
-	return this.Link.GetRXTime().UnixNano()
+	return this.Link.GetRXTime()
 }
 
 //GetContactTime return peer`s latest contact time in Time struct
 func (this *Peer) GetContactTime() time.Time {
-	return this.Link.GetRXTime()
+	unixNano := this.Link.GetRXTime()
+	return time.Unix(unixNano/1e9, unixNano%1e9)
 }
 
 //GetAddr return peer`s sync link address
@@ -188,7 +181,7 @@ func (this *Peer) GetAddr16() ([16]byte, error) {
 	}
 	ip := net.ParseIP(addrIp).To16()
 	if ip == nil {
-		log4.Warn("[p2p]parse ip address error\n", this.GetAddr())
+		log.Warn("[p2p]parse ip address error\n", this.GetAddr())
 		return result, errors.New("[p2p]parse ip address error")
 	}
 
@@ -198,11 +191,6 @@ func (this *Peer) GetAddr16() ([16]byte, error) {
 
 func (this *Peer) GetSoftVersion() string {
 	return this.Info.SoftVersion
-}
-
-//AttachChan set msg chan to sync link
-func (this *Peer) AttachChan(msgchan chan *types.MsgPayload) {
-	this.Link.SetChan(msgchan)
 }
 
 //Send transfer buffer by sync or cons link

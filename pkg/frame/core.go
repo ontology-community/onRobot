@@ -19,8 +19,9 @@
 package frame
 
 import (
-	log4 "github.com/alecthomas/log4go"
 	"time"
+
+	"github.com/ontio/ontology/common/log"
 )
 
 var (
@@ -61,7 +62,7 @@ func (this *OntologyTool) Start(methodsList []string) {
 		this.runMethodList(methodsList)
 		return
 	}
-	log4.Info("No method to run")
+	log.Info("No method to run")
 	return
 }
 
@@ -85,10 +86,10 @@ func (this *OntologyTool) runMethod(index int, methodName string) {
 }
 
 func (this *OntologyTool) onStart() {
-	log4.Info("===============================================================")
-	log4.Info("-------Ontology Tool Start-------")
-	log4.Info("===============================================================")
-	log4.Info("")
+	log.Info("===============================================================")
+	log.Info("-------Ontology Tool Start-------")
+	log.Info("===============================================================")
+	log.Info("")
 }
 
 func (this *OntologyTool) onFinish(methodsList []string) {
@@ -114,8 +115,8 @@ func (this *OntologyTool) onFinish(methodsList []string) {
 	failedCount := len(failedList)
 	endTime := time.Now().Unix()
 
-	log4.Info("===============================================================")
-	log4.Info("Ontology Tool Finish Total:%v Success:%v Failed:%v Skip:%v, SpendTime:%d sec",
+	log.Info("===============================================================")
+	log.Infof("Ontology Tool Finish Total:%v Success:%v Failed:%v Skip:%v, SpendTime:%d sec",
 		len(methodsList),
 		succCount,
 		failedCount,
@@ -124,43 +125,43 @@ func (this *OntologyTool) onFinish(methodsList []string) {
 	)
 
 	if succCount > 0 {
-		log4.Info("---------------------------------------------------------------")
-		log4.Info("Success list:")
+		log.Info("---------------------------------------------------------------")
+		log.Info("Success list:")
 		for i, succ := range successList {
-			log4.Info("%d.\t%s", i+1, succ)
+			log.Infof("%d.\t%s", i+1, succ)
 		}
 	}
 	if failedCount > 0 {
-		log4.Info("---------------------------------------------------------------")
-		log4.Info("Fail list:")
+		log.Info("---------------------------------------------------------------")
+		log.Info("Fail list:")
 		for i, fail := range failedList {
-			log4.Info("%d.\t%s", i+1, fail)
+			log.Infof("%d.\t%s", i+1, fail)
 		}
 	}
 	if len(skipList) > 0 {
-		log4.Info("---------------------------------------------------------------")
-		log4.Info("Skip list:")
+		log.Info("---------------------------------------------------------------")
+		log.Info("Skip list:")
 		for i, skip := range skipList {
-			log4.Info("%d.\t%s", i+1, skip)
+			log.Infof("%d.\t%s", i+1, skip)
 		}
 	}
-	log4.Info("===============================================================")
+	log.Info("===============================================================")
 }
 
 func (this *OntologyTool) onBeforeMethodStart(index int, methodName string) {
-	log4.Info("===============================================================")
-	log4.Info("%d. Start Method:%s", index, methodName)
-	log4.Info("---------------------------------------------------------------")
+	log.Info("===============================================================")
+	log.Infof("%d. Start Method:%s", index, methodName)
+	log.Info("---------------------------------------------------------------")
 }
 
 func (this *OntologyTool) onAfterMethodFinish(index int, methodName string, res bool) {
 	if res {
-		log4.Info("Run Method:%s success.", methodName)
+		log.Infof("Run Method:%s success.", methodName)
 	} else {
-		log4.Info("Run Method:%s failed.", methodName)
+		log.Infof("Run Method:%s failed.", methodName)
 	}
-	log4.Info("---------------------------------------------------------------")
-	log4.Info("")
+	log.Info("---------------------------------------------------------------")
+	log.Info("")
 }
 
 func (this *OntologyTool) getMethodByName(name string) Method {

@@ -20,31 +20,32 @@ package main
 
 import (
 	"flag"
-	log4 "github.com/alecthomas/log4go"
 	"github.com/ontology-community/onRobot/internal/p2pnode"
 	"github.com/ontology-community/onRobot/internal/p2pnode/conf"
 )
 
 var (
-	Config,
-	LogConfig string
+	Config string
 
 	httpPort,
 	nodePort uint
+
+	walletPath,
+	walletPwd string
 )
 
 func init() {
 	flag.StringVar(&Config, "config", "target/node/config.json", "Config of ontology-tool")
-	flag.StringVar(&LogConfig, "log", "target/node/log4go.xml", "Log config of ontology-tool")
 	flag.UintVar(&httpPort, "httpport", 30004, "http info port")
 	flag.UintVar(&nodePort, "nodeport", 40004, "http info port")
+	flag.StringVar(&walletPath, "wallet", "target/node/wallet.dat", "wallet path")
+	flag.StringVar(&walletPwd, "pwd", "123456", "wallet password")
 	flag.Parse()
 }
 
 func main() {
-	log4.LoadConfiguration(LogConfig)
 	if err := conf.DefConfig.Init(Config, nodePort, httpPort); err != nil {
-		log4.Crash(err)
+		panic(err)
 	}
-	p2pnode.NewNode()
+	p2pnode.NewNode(walletPath, walletPwd)
 }

@@ -16,15 +16,32 @@
  * along with The ontology.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package types
+package p2p
 
-import (
-	"testing"
-)
+type AddressFilter interface {
+	// addr format : ip:port
+	Filtered(addr string) bool
+}
 
-func TestPingSerializationDeserialization(t *testing.T) {
-	var msg Ping
-	msg.Height = 1
+func CombineAddrFilter(filter1, filter2 AddressFilter) AddressFilter {
+	return &combineAddrFilter{filter1: filter1, filter2: filter2}
+}
 
-	MessageTest(t, &msg)
+func NoneAddrFilter() AddressFilter {
+	return &noneAddrFilter{}
+}
+
+type combineAddrFilter struct {
+	filter1 AddressFilter
+	filter2 AddressFilter
+}
+
+func (self *combineAddrFilter) Filtered(addr string) bool {
+	return self.filter1.Filtered(addr) || self.filter2.Filtered(addr)
+}
+
+type noneAddrFilter struct{}
+
+func (self *noneAddrFilter) Filtered(addr string) bool {
+	return false
 }

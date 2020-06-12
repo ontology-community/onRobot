@@ -2,11 +2,12 @@ package httpinfo
 
 import (
 	"fmt"
-	log4 "github.com/alecthomas/log4go"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/net/netserver"
 	"net/http"
 	_ "net/http/pprof"
 	"strings"
+
+	"github.com/ontio/ontology/common/log"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/net/netserver"
 )
 
 const (
@@ -32,9 +33,9 @@ func (s *TxInfoServer) HandleHttpServer(port uint16) {
 	http.HandleFunc(StatHashList, s.handleHashList)
 	addr := fmt.Sprintf(":%d", port)
 	if err := http.ListenAndServe(addr, nil); err != nil {
-		log4.Crash(err)
+		log.Fatal(err)
 	}
-	log4.Info("tx stat info server started, listen on %d!", port)
+	log.Infof("tx stat info server started, listen on %d!", port)
 }
 
 func (s *TxInfoServer) handleStat(w http.ResponseWriter, r *http.Request) {

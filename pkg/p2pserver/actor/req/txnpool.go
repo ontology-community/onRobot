@@ -19,8 +19,8 @@
 package req
 
 import (
-	log4 "github.com/alecthomas/log4go"
 	"github.com/ontio/ontology-eventbus/actor"
+	"github.com/ontio/ontology/common/log"
 	"github.com/ontio/ontology/core/types"
 	tc "github.com/ontio/ontology/txnpool/common"
 )
@@ -34,7 +34,7 @@ func SetTxnPoolPid(txnPid *actor.PID) {
 //add txn to txnpool
 func AddTransaction(transaction *types.Transaction) {
 	if txnPoolPid == nil {
-		log4.Error("[p2p]net_server AddTransaction(): txnpool pid is nil")
+		log.Error("[p2p]net_server AddTransaction(): txnpool pid is nil")
 		return
 	}
 	txReq := &tc.TxReq{

@@ -20,33 +20,63 @@ package p2pnode
 
 import (
 	"fmt"
-	log4 "github.com/alecthomas/log4go"
+	"github.com/ontio/ontology/account"
+	"github.com/ontology-community/onRobot/pkg/sdk"
+
+	log "github.com/ontio/ontology/common/log"
 	"github.com/ontio/ontology/events"
 	"github.com/ontology-community/onRobot/internal/p2pnode/conf"
 	"github.com/ontology-community/onRobot/pkg/p2pserver"
 	netreqactor "github.com/ontology-community/onRobot/pkg/p2pserver/actor/req"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/httpinfo"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/net/netserver"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols"
 	"github.com/ontology-community/onRobot/pkg/txnpool"
 	"github.com/ontology-community/onRobot/pkg/txnpool/proc"
 )
 
-func NewNode() {
+const LoggerPrefix = "peer robot"
+
+var (
+	logger common.Logger
+	acc    *account.Account
+)
+
+func NewNode(walletpath, pwd string) {
 	events.Init()
+
+	initLogger()
+	if err := initAccount(walletpath, pwd); err != nil {
+		log.Fatal(err)
+	}
+
 	tp, err := initTxPool()
 	if err != nil {
-		log4.Crash(err)
+		log.Fatal(err)
 	}
 	msghandler := initProtocol()
 
 	p2p, err := initP2PNode(tp, msghandler)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	ns := p2p.GetNetwork().(*netserver.NetServer)
 	httpinfo.RunTxInfoHttpServer(ns, conf.DefConfig.Net.HttpInfoPort)
+}
+
+func initLogger() {
+	ctx := fmt.Sprintf("%s:, ", LoggerPrefix)
+	logger = common.LoggerWithContext(log.Log, ctx)
+}
+
+func initAccount(walletpath, pwd string) error {
+	var err error
+	if acc, err = sdk.RecoverAccount(walletpath, pwd); err != nil {
+		return err
+	}
+	return nil
 }
 
 func initTxPool() (*proc.TXPoolServer, error) {
@@ -58,16 +88,16 @@ func initTxPool() (*proc.TXPoolServer, error) {
 
 	//hserver.SetTxPid(txPoolServer.GetPID())
 
-	log4.Info("TxPool init success")
+	log.Info("TxPool init success")
 	return txPoolServer, nil
 }
 
 func initProtocol() p2p.Protocol {
-	return protocols.NewWithoutBlockSyncMsgHandler()
+	return protocols.NewWithoutBlockSyncMsgHandler(acc, logger)
 }
 
 func initP2PNode(txpoolSvr *proc.TXPoolServer, handler p2p.Protocol) (*p2pserver.P2PServer, error) {
-	p2p, err := p2pserver.NewStatServer(handler, conf.DefConfig.Net)
+	p2p, err := p2pserver.NewStatServer(handler, conf.DefConfig.Net, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +106,6 @@ func initP2PNode(txpoolSvr *proc.TXPoolServer, handler p2p.Protocol) (*p2pserver
 	}
 	netreqactor.SetTxnPoolPid(txpoolSvr.GetPID())
 	txpoolSvr.Net = p2p.GetNetwork()
-	//hserver.SetNetServer(p2p)
-	//p2p.WaitForPeersStart()
-	log4.Info("P2P init success")
+	log.Info("P2P init success")
 	return p2p, nil
 }

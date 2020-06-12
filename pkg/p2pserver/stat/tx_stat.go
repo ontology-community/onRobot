@@ -2,10 +2,11 @@ package stat
 
 import (
 	"encoding/json"
-	log4 "github.com/alecthomas/log4go"
+	"sync"
+
+	"github.com/ontio/ontology/common/log"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
-	"sync"
 )
 
 type TxNum struct {
@@ -34,7 +35,7 @@ func (s *TxStat) HandleSendMsg(peerId common.PeerId, message types.Message) {
 			hash := h.ToHexString()
 			s.GenerateTxNum(hash)
 			s.data[hash].Send += 1
-			log4.Trace("send received tx %s, count %d", hash, s.data[hash].Send)
+			log.Tracef("send received tx %s, count %d", hash, s.data[hash].Send)
 			s.mu.Unlock()
 		}
 	}

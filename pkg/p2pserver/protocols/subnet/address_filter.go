@@ -16,23 +16,42 @@
  * along with The ontology.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package dao
+package subnet
 
-import (
-	"testing"
-)
+import "net"
 
-func TestInsertStat(t *testing.T) {
-	cfg := &Config{
-		Ip:   "172.168.3.219",
-		Port: 3306,
-		User: "root",
-		Pwd:  "123456",
-		Db:   "txstat",
+type SubNetReservedAddrFilter struct {
+	subnet *SubNet
+}
+
+func (self *SubNetReservedAddrFilter) Filtered(addr string) bool {
+	// seed node should allow all node connection
+	if self.subnet.IsSeedNode() {
+		return false
 	}
-	NewDao(cfg)
-	err := InsertStat("127.0.0.1", 30001, "0xjflaksdjfoi23rnlasdf", 10, 10)
+
+	ip, _, err := net.SplitHostPort(addr)
 	if err != nil {
-		t.Fatal(err)
+		return true
 	}
+
+	if self.subnet.isSeedIp(ip) || self.subnet.acct == nil || !self.subnet.gov.IsGovNode(self.subnet.acct.PublicKey) {
+		return false
+	}
+
+	// self is gov node, then check whether addr is subnet members
+	has := self.subnet.IpInMembers(ip)
+	return !has
+}
+
+type SubNetMaskAddrFilter struct {
+	subnet *SubNet
+}
+
+func (self *SubNetMaskAddrFilter) Filtered(addr string) bool {
+	self.subnet.lock.Lock()
+	defer self.subnet.lock.Unlock()
+	_, ok := self.subnet.members[addr]
+
+	return ok
 }

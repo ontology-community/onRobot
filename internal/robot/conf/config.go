@@ -20,6 +20,7 @@ package conf
 
 import (
 	"fmt"
+
 	cmf "github.com/ontio/ontology/common/config"
 	"github.com/ontology-community/onRobot/pkg/files"
 )

@@ -18,15 +18,17 @@
 package heatbeat
 
 import (
-	log4 "github.com/alecthomas/log4go"
-	"github.com/ontio/ontology/common/config"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/message/msg_pack"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/params"
 	"sync/atomic"
 	"time"
+
+	"github.com/ontio/ontology/common/config"
+	"github.com/ontio/ontology/common/log"
+
+	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
+	msgpack "github.com/ontology-community/onRobot/pkg/p2pserver/message/msg_pack"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
+	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/params"
 )
 
 type HeartBeat struct {
@@ -84,14 +86,14 @@ func (this *HeartBeat) heartBeatService() {
 
 func (this *HeartBeat) ping() {
 	if this.NeedInterrupt(true) {
-		log4.Debug("[p2p]interrupt ping...")
+		log.Debug("[p2p]interrupt ping...")
 		return
 	}
 
 	height := this.height
 	ping := msgpack.NewPingMsg(uint64(height))
 	go this.net.Broadcast(ping)
-	log4.Debug("[p2p]send ping msg height %d", height)
+	log.Debugf("[p2p]send ping msg height %d", height)
 }
 
 //timeout trace whether some peer be long time no response
@@ -102,7 +104,7 @@ func (this *HeartBeat) timeout() {
 		t := p.GetContactTime()
 		if t.Before(time.Now().Add(-1 * time.Second *
 			time.Duration(periodTime) * common.KEEPALIVE_TIMEOUT)) {
-			log4.Warn("[p2p]keep alive timeout!!!lost remote peer %d - %s from %s", p.GetID(), p.Link.GetAddr(), t.String())
+			log.Warnf("[p2p]keep alive timeout!!!lost remote peer %d - %s from %s", p.GetID(), p.Link.GetAddr(), t.String())
 			p.Close()
 		}
 	}
@@ -111,7 +113,7 @@ func (this *HeartBeat) timeout() {
 func (this *HeartBeat) PingHandle(ctx *p2p.Context, ping *types.Ping) {
 	// mark:
 	if this.NeedInterrupt(false) {
-		log4.Debug("[p2p]interrupt pong...")
+		log.Debug("[p2p]interrupt pong...")
 		return
 	}
 
@@ -125,9 +127,8 @@ func (this *HeartBeat) PingHandle(ctx *p2p.Context, ping *types.Ping) {
 
 	err := remotePeer.Send(msg)
 	if err != nil {
-		log4.Warn(err)
+		log.Warn(err)
 	}
-	log4.Debug("[p2p]recv pong msg height %d", height)
 }
 
 func (this *HeartBeat) PongHandle(ctx *p2p.Context, pong *types.Pong) {

@@ -19,8 +19,9 @@
 package robot
 
 import (
-	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"testing"
+
+	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 )
 
 // go test -count=1 -v github.com/ontology-community/onRobot/methods -run GenerateZeroDistancePeerIDs

@@ -19,17 +19,14 @@
 package netserver
 
 import (
-	"net"
-	"sync"
-	"sync/atomic"
-
-	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
-
-	log4 "github.com/alecthomas/log4go"
 	comm "github.com/ontio/ontology/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
 	st "github.com/ontology-community/onRobot/pkg/p2pserver/stat"
+	"net"
+	"sync"
+	"sync/atomic"
 )
 
 // Conn is a net.Conn wrapper to do some clean up when Close.
@@ -51,11 +48,11 @@ func (self *Conn) Close() error {
 
 	n := self.netServer.Np.List[self.id]
 	if n.Peer == nil {
-		log4.Crashf("connection %s not in net server", self.id.ToHexString())
+		self.netServer.logger.Fatalf("connection %s not in net server", self.id.ToHexString())
 	} else if n.session == self.session { // connection not replaced
 		delete(self.netServer.Np.List, self.id)
 		// need handle asynchronously since we hold Np.Lock
-		log4.Info("remove peer %s from net server", self.id.ToHexString())
+		self.netServer.logger.Infof("remove peer %s from net server", self.id.ToHexString())
 		go self.netServer.notifyPeerDisconnected(n.Peer.Info)
 	}
 
@@ -105,7 +102,6 @@ func (this *NbrPeers) Broadcast(msg types.Message) {
 		if node.Peer.GetRelay() {
 			go node.Peer.SendRaw(msg.CmdType(), sink.Bytes())
 
-			log4.Trace("broadcast to %s", node.Peer.Link.GetAddr())
 			if this.stat != nil {
 				this.stat.HandleSendMsg(node.Peer.GetID(), msg)
 			}

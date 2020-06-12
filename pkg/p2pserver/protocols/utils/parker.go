@@ -16,31 +16,29 @@
  * along with The ontology.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package types
+package utils
 
-import (
-	"testing"
+import "time"
 
-	cm "github.com/ontio/ontology/common"
-)
-
-func Uint256ParseFromBytes(f []byte) cm.Uint256 {
-	if len(f) != 32 {
-		return cm.Uint256{}
-	}
-
-	var hash [32]uint8
-	for i := 0; i < 32; i++ {
-		hash[i] = f[i]
-	}
-	return cm.Uint256(hash)
+type Parker struct {
+	c chan struct{}
 }
 
-func TestNotFoundSerializationDeserialization(t *testing.T) {
-	var msg NotFound
-	str := "123456"
-	hash := []byte(str)
-	msg.Hash = Uint256ParseFromBytes(hash)
+func NewParker() *Parker {
+	c := make(chan struct{}, 0)
+	return &Parker{c: c}
+}
 
-	MessageTest(t, &msg)
+func (self *Parker) ParkTimeout(d time.Duration) {
+	select {
+	case <-self.c:
+	case <-time.After(d):
+	}
+}
+
+func (self *Parker) Unpark() {
+	select {
+	case self.c <- struct{}{}:
+	default:
+	}
 }

@@ -21,52 +21,79 @@ package protocols
 import (
 	"errors"
 	"fmt"
-	log4 "github.com/alecthomas/log4go"
-	"github.com/hashicorp/golang-lru"
+
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/ontio/ontology/account"
 	"github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/common/config"
+	"github.com/ontio/ontology/common/log"
 	"github.com/ontio/ontology/core/ledger"
 	"github.com/ontio/ontology/core/types"
+
 	actor "github.com/ontology-community/onRobot/pkg/p2pserver/actor/req"
 	msgCommon "github.com/ontology-community/onRobot/pkg/p2pserver/common"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/message/msg_pack"
+	msgpack "github.com/ontology-community/onRobot/pkg/p2pserver/message/msg_pack"
 	msgTypes "github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/block_sync"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/bootstrap"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/discovery"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/heatbeat"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/recent_peers"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/reconnect"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/subnet"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/utils"
 )
 
 //respCache cache for some response data
-var respCache *lru.ARCCache
+var respCache, _ = lru.NewARC(msgCommon.MAX_RESP_CACHE_SIZE)
 
 //Store txHash, using for rejecting duplicate tx
 // thread safe
 var txCache, _ = lru.NewARC(msgCommon.MAX_TX_CACHE_SIZE)
 
 type MsgHandler struct {
+	seeds                    *utils.HostsResolver
 	blockSync                *block_sync.BlockSyncMgr
 	reconnect                *reconnect.ReconnectService
 	discovery                *discovery.Discovery
 	heatBeat                 *heatbeat.HeartBeat
 	bootstrap                *bootstrap.BootstrapService
 	persistRecentPeerService *recent_peers.PersistRecentPeerService
+	subnet                   *subnet.SubNet
 	ledger                   *ledger.Ledger
+	acct                     *account.Account // nil if conenesus is not enabled
 }
 
-func NewMsgHandler(ld *ledger.Ledger) *MsgHandler {
-	return &MsgHandler{ledger: ld}
+func NewMsgHandler(acct *account.Account, ld *ledger.Ledger, logger msgCommon.Logger) *MsgHandler {
+	gov := utils.NewGovNodeResolver(ld)
+	seedsList := config.DefConfig.Genesis.SeedList
+	seeds, invalid := utils.NewHostsResolver(seedsList)
+	if invalid != nil {
+		panic(fmt.Errorf("invalid seed list； %v", invalid))
+	}
+	subNet := subnet.NewSubNet(acct, seeds, gov, logger)
+	return &MsgHandler{ledger: ld, seeds: seeds, subnet: subNet, acct: acct}
+}
+
+func (self *MsgHandler) GetReservedAddrFilter() p2p.AddressFilter {
+	return self.subnet.GetReservedAddrFilter()
+}
+
+func (self *MsgHandler) GetMaskAddrFilter() p2p.AddressFilter {
+	return self.subnet.GetMaskAddrFilter()
+}
+
+func (self *MsgHandler) GetSubnetMembersInfo() []msgCommon.SubnetMemberInfo {
+	return self.subnet.GetMembersInfo()
 }
 
 func (self *MsgHandler) start(net p2p.P2P) {
 	self.blockSync = block_sync.NewBlockSyncMgr(net, self.ledger)
 	self.reconnect = reconnect.NewReconectService(net)
-	self.discovery = discovery.NewDiscovery(net, config.DefConfig.P2PNode.ReservedCfg.MaskPeers, 0)
-	seeds := config.DefConfig.Genesis.SeedList
-	self.bootstrap = bootstrap.NewBootstrapService(net, seeds)
+	maskFilter := self.subnet.GetMaskAddrFilter()
+	self.discovery = discovery.NewDiscovery(net, config.DefConfig.P2PNode.ReservedCfg.MaskPeers, maskFilter, 0)
+	self.bootstrap = bootstrap.NewBootstrapService(net, self.seeds)
 	self.heatBeat = heatbeat.NewHeartBeat(net)
 	self.persistRecentPeerService = recent_peers.NewPersistRecentPeerService(net)
 	go self.persistRecentPeerService.Start()
@@ -75,6 +102,7 @@ func (self *MsgHandler) start(net p2p.P2P) {
 	go self.discovery.Start()
 	go self.heatBeat.Start()
 	go self.bootstrap.Start()
+	go self.subnet.Start(net)
 }
 
 func (self *MsgHandler) stop() {
@@ -84,6 +112,7 @@ func (self *MsgHandler) stop() {
 	self.persistRecentPeerService.Stop()
 	self.heatBeat.Stop()
 	self.bootstrap.Stop()
+	self.subnet.Stop()
 }
 
 func (self *MsgHandler) HandleSystemMessage(net p2p.P2P, msg p2p.SystemMessage) {
@@ -96,19 +125,23 @@ func (self *MsgHandler) HandleSystemMessage(net p2p.P2P, msg p2p.SystemMessage) 
 		self.discovery.OnAddPeer(m.Info)
 		self.bootstrap.OnAddPeer(m.Info)
 		self.persistRecentPeerService.AddNodeAddr(m.Info.RemoteListenAddress())
+		self.subnet.OnAddPeer(net, m.Info)
 	case p2p.PeerDisConnected:
 		self.blockSync.OnDelNode(m.Info.Id)
 		self.reconnect.OnDelPeer(m.Info)
 		self.discovery.OnDelPeer(m.Info)
 		self.bootstrap.OnDelPeer(m.Info)
+		self.subnet.OnDelPeer(m.Info)
 		self.persistRecentPeerService.DelNodeAddr(m.Info.RemoteListenAddress())
 	case p2p.NetworkStop:
 		self.stop()
+	case p2p.HostAddrDetected:
+		self.subnet.OnHostAddrDetected(m.ListenAddr)
 	}
 }
 
 func (self *MsgHandler) HandlePeerMessage(ctx *p2p.Context, msg msgTypes.Message) {
-	log4.Trace("[p2p]receive message", ctx.Sender().GetAddr(), ctx.Sender().GetID())
+	log.Trace("[p2p]receive message", ctx.Sender().GetAddr(), ctx.Sender().GetID())
 	switch m := msg.(type) {
 	case *msgTypes.AddrReq:
 		self.discovery.AddrReqHandle(ctx)
@@ -136,14 +169,18 @@ func (self *MsgHandler) HandlePeerMessage(ctx *p2p.Context, msg msgTypes.Message
 		DataReqHandle(ctx, m)
 	case *msgTypes.Inv:
 		InvHandle(ctx, m)
+	case *msgTypes.SubnetMembersRequest:
+		self.subnet.OnMembersRequest(ctx, m)
+	case *msgTypes.SubnetMembers:
+		self.subnet.OnMembersResponse(ctx, m)
 	case *msgTypes.NotFound:
-		log4.Debug("[p2p]receive notFound message, hash is ", m.Hash)
+		log.Debug("[p2p]receive notFound message, hash is ", m.Hash)
 	default:
 		msgType := msg.CmdType()
 		if msgType == msgCommon.VERACK_TYPE || msgType == msgCommon.VERSION_TYPE {
-			log4.Info("receive message: %s from peer %s", msgType, ctx.Sender().GetAddr())
+			log.Infof("receive message: %s from peer %s", msgType, ctx.Sender().GetAddr())
 		} else {
-			log4.Warn("unknown message handler for the msg: ", msgType)
+			log.Warn("unknown message handler for the msg: ", msgType)
 		}
 	}
 }
@@ -155,14 +192,14 @@ func HeadersReqHandle(ctx *p2p.Context, headersReq *msgTypes.HeadersReq) {
 
 	headers, err := GetHeadersFromHash(startHash, stopHash)
 	if err != nil {
-		log4.Warn("HeadersReqHandle error: %s,startHash:%s,stopHash:%s", err.Error(), startHash.ToHexString(), stopHash.ToHexString())
+		log.Warnf("HeadersReqHandle error: %s,startHash:%s,stopHash:%s", err.Error(), startHash.ToHexString(), stopHash.ToHexString())
 		return
 	}
 	remotePeer := ctx.Sender()
 	msg := msgpack.NewHeaders(headers)
 	err = remotePeer.Send(msg)
 	if err != nil {
-		log4.Warn(err)
+		log.Warn(err)
 		return
 	}
 }
@@ -183,7 +220,7 @@ func (self *MsgHandler) blockHandle(ctx *p2p.Context, block *msgTypes.Block) {
 func ConsensusHandle(ctx *p2p.Context, consensus *msgTypes.Consensus) {
 	if actor.ConsensusPid != nil {
 		if err := consensus.Cons.Verify(); err != nil {
-			log4.Warn(err)
+			log.Warn(err)
 			return
 		}
 		consensus.Cons.PeerId = ctx.Sender().GetID()
@@ -196,9 +233,8 @@ func TransactionHandle(ctx *p2p.Context, trn *msgTypes.Trn) {
 	if !txCache.Contains(trn.Txn.Hash()) {
 		txCache.Add(trn.Txn.Hash(), nil)
 		actor.AddTransaction(trn.Txn)
-		log4.Trace("[p2p]receive Transaction message, txHash: %x\n", trn.Txn.Hash())
 	} else {
-		log4.Trace("[p2p]receive duplicate Transaction message, txHash: %x\n", trn.Txn.Hash())
+		log.Tracef("[p2p]receive duplicate Transaction message, txHash: %x\n", trn.Txn.Hash())
 	}
 }
 
@@ -222,35 +258,35 @@ func DataReqHandle(ctx *p2p.Context, dataReq *msgTypes.DataReq) {
 			var merkleRoot common.Uint256
 			block, err := ledger.DefLedger.GetBlockByHash(hash)
 			if err != nil || block == nil || block.Header == nil {
-				log4.Debug("[p2p]can't get block by hash: ", hash, " ,send not found message")
+				log.Debug("[p2p]can't get block by hash: ", hash, " ,send not found message")
 				msg := msgpack.NewNotFound(hash)
 				err := remotePeer.Send(msg)
 				if err != nil {
-					log4.Warn(err)
+					log.Warn(err)
 					return
 				}
 				return
 			}
 			ccMsg, err := ledger.DefLedger.GetCrossChainMsg(block.Header.Height - 1)
 			if err != nil {
-				log4.Debug("[p2p]failed to get cross chain message at height %v, err %v",
+				log.Debugf("[p2p]failed to get cross chain message at height %v, err %v",
 					block.Header.Height-1, err)
 				msg := msgpack.NewNotFound(hash)
 				err := remotePeer.Send(msg)
 				if err != nil {
-					log4.Warn(err)
+					log.Warn(err)
 					return
 				}
 				return
 			}
 			merkleRoot, err = ledger.DefLedger.GetStateMerkleRoot(block.Header.Height)
 			if err != nil {
-				log4.Debug("[p2p]failed to get state merkel root at height %v, err %v",
+				log.Debugf("[p2p]failed to get state merkel root at height %v, err %v",
 					block.Header.Height, err)
 				msg := msgpack.NewNotFound(hash)
 				err := remotePeer.Send(msg)
 				if err != nil {
-					log4.Warn(err)
+					log.Warn(err)
 					return
 				}
 				return
@@ -260,26 +296,26 @@ func DataReqHandle(ctx *p2p.Context, dataReq *msgTypes.DataReq) {
 		}
 		err := remotePeer.Send(msg)
 		if err != nil {
-			log4.Warn(err)
+			log.Warn(err)
 			return
 		}
 
 	case common.TRANSACTION:
 		txn, err := ledger.DefLedger.GetTransaction(hash)
 		if err != nil {
-			log4.Debug("[p2p]Can't get transaction by hash: ",
+			log.Debug("[p2p]Can't get transaction by hash: ",
 				hash, " ,send not found message")
 			msg := msgpack.NewNotFound(hash)
 			err = remotePeer.Send(msg)
 			if err != nil {
-				log4.Warn(err)
+				log.Warn(err)
 				return
 			}
 		}
 		msg := msgpack.NewTxn(txn)
 		err = remotePeer.Send(msg)
 		if err != nil {
-			log4.Warn(err)
+			log.Warn(err)
 			return
 		}
 	}
@@ -290,18 +326,18 @@ func DataReqHandle(ctx *p2p.Context, dataReq *msgTypes.DataReq) {
 func InvHandle(ctx *p2p.Context, inv *msgTypes.Inv) {
 	remotePeer := ctx.Sender()
 	if len(inv.P.Blk) == 0 {
-		log4.Debug("[p2p]empty inv payload in InvHandle")
+		log.Debug("[p2p]empty inv payload in InvHandle")
 		return
 	}
 	var id common.Uint256
 	str := inv.P.Blk[0].ToHexString()
-	log4.Debug("[p2p]the inv type: 0x%x block len: %d, %s\n",
+	log.Debugf("[p2p]the inv type: 0x%x block len: %d, %s\n",
 		inv.P.InvType, len(inv.P.Blk), str)
 
 	invType := common.InventoryType(inv.P.InvType)
 	switch invType {
 	case common.TRANSACTION:
-		log4.Debug("[p2p]receive transaction message", id)
+		log.Debug("[p2p]receive transaction message", id)
 		// TODO check the ID queue
 		id = inv.P.Blk[0]
 		trn, err := ledger.DefLedger.GetTransaction(id)
@@ -309,43 +345,43 @@ func InvHandle(ctx *p2p.Context, inv *msgTypes.Inv) {
 			msg := msgpack.NewTxnDataReq(id)
 			err = remotePeer.Send(msg)
 			if err != nil {
-				log4.Warn(err)
+				log.Warn(err)
 				return
 			}
 		}
 	case common.BLOCK:
-		log4.Debug("[p2p]receive block message")
+		log.Debug("[p2p]receive block message")
 		for _, id = range inv.P.Blk {
-			log4.Debug("[p2p]receive inv-block message, hash is ", id)
+			log.Debug("[p2p]receive inv-block message, hash is ", id)
 			// TODO check the ID queue
 			isContainBlock, err := ledger.DefLedger.IsContainBlock(id)
 			if err != nil {
-				log4.Warn(err)
+				log.Warn(err)
 				return
 			}
 			if !isContainBlock && msgTypes.LastInvHash != id {
 				msgTypes.LastInvHash = id
 				// send the block request
-				log4.Info("[p2p]inv request block hash: %x", id)
+				log.Infof("[p2p]inv request block hash: %x", id)
 				msg := msgpack.NewBlkDataReq(id)
 				err = remotePeer.Send(msg)
 				if err != nil {
-					log4.Warn(err)
+					log.Warn(err)
 					return
 				}
 			}
 		}
 	case common.CONSENSUS:
-		log4.Debug("[p2p]receive consensus message")
+		log.Debug("[p2p]receive consensus message")
 		id = inv.P.Blk[0]
 		msg := msgpack.NewConsensusDataReq(id)
 		err := remotePeer.Send(msg)
 		if err != nil {
-			log4.Warn(err)
+			log.Warn(err)
 			return
 		}
 	default:
-		log4.Warn("[p2p]receive unknown inventory message")
+		log.Warn("[p2p]receive unknown inventory message")
 	}
 
 }
@@ -413,7 +449,7 @@ func GetHeadersFromHash(startHash common.Uint256, stopHash common.Uint256) ([]*t
 		hash := ledger.DefLedger.GetBlockHash(stopHeight + i)
 		header, err := ledger.DefLedger.GetHeaderByHash(hash)
 		if err != nil {
-			log4.Debug("[p2p]net_server GetBlockWithHeight failed with err=%s, hash=%x,height=%d\n", err.Error(), hash, stopHeight+i)
+			log.Debugf("[p2p]net_server GetBlockWithHeight failed with err=%s, hash=%x,height=%d\n", err.Error(), hash, stopHeight+i)
 			return nil, err
 		}
 
@@ -432,9 +468,6 @@ func GetHeadersFromHash(startHash common.Uint256, stopHash common.Uint256) ([]*t
 
 //getRespCacheValue get response data from cache
 func getRespCacheValue(key string) interface{} {
-	if respCache == nil {
-		return nil
-	}
 	data, ok := respCache.Get(key)
 	if ok {
 		return data
@@ -443,16 +476,8 @@ func getRespCacheValue(key string) interface{} {
 }
 
 //saveRespCache save response msg to cache
-func saveRespCache(key string, value interface{}) bool {
-	if respCache == nil {
-		var err error
-		respCache, err = lru.NewARC(msgCommon.MAX_RESP_CACHE_SIZE)
-		if err != nil {
-			return false
-		}
-	}
+func saveRespCache(key string, value interface{}) {
 	respCache.Add(key, value)
-	return true
 }
 
 func (mh *MsgHandler) ReconnectService() *reconnect.ReconnectService {

@@ -19,8 +19,16 @@
 package robot
 
 import (
-	log4 "github.com/alecthomas/log4go"
+	"math"
+	"math/big"
+	"net"
+	"strconv"
+	"strings"
+	"sync/atomic"
+	"time"
+
 	ontcm "github.com/ontio/ontology/common"
+	"github.com/ontio/ontology/common/log"
 	"github.com/ontology-community/onRobot/internal/robot/conf"
 	"github.com/ontology-community/onRobot/internal/robot/dao"
 	"github.com/ontology-community/onRobot/pkg/files"
@@ -30,13 +38,6 @@ import (
 	pr "github.com/ontology-community/onRobot/pkg/p2pserver/params"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols"
 	"github.com/ontology-community/onRobot/pkg/sdk"
-	"math"
-	"math/big"
-	"net"
-	"strconv"
-	"strings"
-	"sync/atomic"
-	"time"
 )
 
 func Demo() bool {
@@ -44,26 +45,26 @@ func Demo() bool {
 	jsonrpcAddr := "http://172.168.3.158:20336"
 	height, err := sdk.GetBlockCurrentHeight(jsonrpcAddr)
 	if err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
-	log4.Info("jsonrpcAddr %s current block height %d", jsonrpcAddr, height)
+	log.Info("jsonrpcAddr %s current block height %d", jsonrpcAddr, height)
 
 	// recover kp
 	acc, err := sdk.RecoverAccount(conf.TransferWalletPath, conf.DefConfig.WalletPwd)
 	if err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
-	log4.Info("address %s", acc.Address.ToBase58())
+	log.Info("address %s", acc.Address.ToBase58())
 
 	// get balance
 	resp, err := sdk.GetBalance(jsonrpcAddr, acc.Address)
 	if err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
-	log4.Info("ont %s, ong %s, block height %s", resp.Ont, resp.Ong, resp.Height)
+	log.Infof("ont %s, ong %s, block height %s", resp.Ont, resp.Ong, resp.Height)
 	return true
 }
 
@@ -76,18 +77,18 @@ func FakePeerID() bool {
 		DispatchTime int
 	}
 	if err := files.LoadParams(conf.ParamsFileDir, "FakePeerID.json", &params); err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
 	kid := p2pcm.RandPeerKeyId()
 	list, err := GenerateZeroDistancePeerIDs(kid.Id, 1)
 	if err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 	if len(list) != 1 {
-		_ = log4.Error("generate fake peer id failed")
+		log.Error("generate fake peer id failed")
 		return false
 	}
 	pkid := p2pcm.FakePeerKeyId(list[0])
@@ -95,14 +96,14 @@ func FakePeerID() bool {
 	protocol := protocols.NewOnlyHeartbeatMsgHandler()
 	ns := GenerateNetServerWithFakeKid(protocol, pkid)
 	if err := ns.Connect(params.Remote); err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 	} else {
 		pid := ns.GetID()
-		log4.Debug("%s connected", pid.ToHexString())
+		log.Debugf("%s connected", pid.ToHexString())
 	}
 
 	Dispatch(params.DispatchTime)
-	log4.Info("fake peer id success!")
+	log.Info("fake peer id success!")
 
 	return true
 }
@@ -114,7 +115,7 @@ func Connect() bool {
 		TestCase uint8
 	}
 	if err := files.LoadParams(conf.ParamsFileDir, "Connect.json", &params); err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
@@ -128,14 +129,14 @@ func Connect() bool {
 	// 4. connect and handshake
 	remotePeer, err := ns.ConnectAndReturnPeer(params.Remote)
 	if err != nil {
-		log4.Debug("connecting to %s failed, err: %s", params.Remote, err)
+		log.Debug("connecting to %s failed, err: %s", params.Remote, err)
 		return false
 	}
 
 	// 5. calculate distance
 	cpl := distance(ns.GetID(), remotePeer.GetID())
 
-	log4.Info("handshake end success, cpl is %d", cpl)
+	log.Info("handshake end success, cpl is %d", cpl)
 
 	return true
 }
@@ -158,7 +159,7 @@ func HandshakeWrongMsg() bool {
 		SoftVersion  string
 	}
 	if err := files.LoadParams(conf.ParamsFileDir, "HandshakeWrongMsg.json", &params); err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
@@ -183,13 +184,13 @@ func HandshakeWrongMsg() bool {
 	ns := GenerateNetServerWithProtocol(protocol)
 
 	if err := ns.Connect(params.Remote); err == nil {
-		_ = log4.Error("connecting to %s with invalid version should be failed!", params.Remote)
+		log.Errorf("connecting to %s with invalid version should be failed!", params.Remote)
 		return false
 	}
 
 	Dispatch(params.DispatchTime)
 
-	log4.Info("handshakeWrongMsg end!")
+	log.Info("handshakeWrongMsg end!")
 
 	return true
 }
@@ -202,7 +203,7 @@ func HandshakeTimeout() bool {
 		Retry int
 	}
 	if err := files.LoadParams(conf.ParamsFileDir, "HandshakeTimeout.json", &params); err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
@@ -212,19 +213,19 @@ func HandshakeTimeout() bool {
 	pr.SetHandshakeClientTimeout(params.ClientBlockTime)
 	pr.SetHandshakeServerTimeout(params.ServerBlockTime)
 	if err := ns.Connect(params.Remote); err != nil {
-		log4.Debug("connecting to %s failed, err: %s", params.Remote, err)
+		log.Debugf("connecting to %s failed, err: %s", params.Remote, err)
 	} else {
-		log4.Info("handshake success!")
+		log.Info("handshake success!")
 		return true
 	}
 
 	for i := 0; i < params.Retry; i++ {
-		log4.Debug("connecting retry cnt %d", i)
+		log.Debug("connecting retry cnt %d", i)
 		pr.SetHandshakeClientTimeout(0)
 		if err := ns.Connect(params.Remote); err != nil {
-			log4.Debug("connecting to %s failed, err: %s", params.Remote, err)
+			log.Debugf("connecting to %s failed, err: %s", params.Remote, err)
 		} else {
-			log4.Info("handshake success!")
+			log.Info("handshake success!")
 			return true
 		}
 	}
@@ -239,7 +240,7 @@ func Heartbeat() bool {
 		DispatchTime    int
 	}
 	if err := files.LoadParams(conf.ParamsFileDir, "Heartbeat.json", &params); err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
@@ -248,13 +249,13 @@ func Heartbeat() bool {
 
 	pr.SetHeartbeatTestBlockHeight(params.InitBlockHeight)
 	if err := ns.Connect(params.Remote); err != nil {
-		_ = log4.Error("connecting to %s failed, err: %s", params.Remote, err)
+		log.Errorf("connecting to %s failed, err: %s", params.Remote, err)
 		return false
 	}
 
 	Dispatch(params.DispatchTime)
 
-	log4.Info("heartbeat end!")
+	log.Info("heartbeat end!")
 	return true
 }
 
@@ -267,7 +268,7 @@ func HeartbeatInterruptPing() bool {
 		DispatchTime            int
 	}
 	if err := files.LoadParams(conf.ParamsFileDir, "HeartbeatInterruptPing.json", &params); err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
@@ -279,13 +280,13 @@ func HeartbeatInterruptPing() bool {
 	ns := GenerateNetServerWithProtocol(protocol)
 
 	if err := ns.Connect(params.Remote); err != nil {
-		_ = log4.Error("connecting to %s failed, err: %s", params.Remote, err)
+		log.Errorf("connecting to %s failed, err: %s", params.Remote, err)
 		return false
 	}
 
 	Dispatch(params.DispatchTime)
 
-	log4.Info("heartbeat end!")
+	log.Info("heartbeat end!")
 	return true
 }
 
@@ -298,7 +299,7 @@ func HeartbeatInterruptPong() bool {
 		DispatchTime            int
 	}
 	if err := files.LoadParams(conf.ParamsFileDir, "HeartbeatInterruptPong.json", &params); err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
@@ -310,13 +311,13 @@ func HeartbeatInterruptPong() bool {
 	ns := GenerateNetServerWithProtocol(protocol)
 
 	if err := ns.Connect(params.Remote); err != nil {
-		_ = log4.Error("connecting to %s failed, err: %s", params.Remote, err)
+		log.Errorf("connecting to %s failed, err: %s", params.Remote, err)
 		return false
 	}
 
 	Dispatch(params.DispatchTime)
 
-	log4.Info("heartbeat end!")
+	log.Info("heartbeat end!")
 	return true
 }
 
@@ -330,7 +331,7 @@ func ResetPeerID() bool {
 		DispatchTime    int
 	}
 	if err := files.LoadParams(conf.ParamsFileDir, "ResetPeerID.json", &params); err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
@@ -339,26 +340,26 @@ func ResetPeerID() bool {
 	ns := GenerateNetServerWithProtocol(protocol)
 
 	if err := ns.Connect(params.Remote); err != nil {
-		_ = log4.Error("connecting to %s failed, err: %s", params.Remote, err)
+		log.Errorf("connecting to %s failed, err: %s", params.Remote, err)
 		return false
 	}
 	oldPeerID := ns.GetID()
-	log4.Debug("old peerID %s", oldPeerID.ToHexString())
+	log.Debug("old peerID %s", oldPeerID.ToHexString())
 
 	if err := ns.ResetRandomPeerID(); err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 	newPeerID := ns.GetID()
-	log4.Debug("new peerID %s", newPeerID.ToHexString())
+	log.Debug("new peerID %s", newPeerID.ToHexString())
 	if err := ns.Connect(params.Remote); err != nil {
-		_ = log4.Error("connecting to %s failed, err: %s", params.Remote, err)
+		log.Errorf("connecting to %s failed, err: %s", params.Remote, err)
 		return true
 	}
 
 	Dispatch(params.DispatchTime)
 
-	log4.Info("reset peerID end!")
+	log.Info("reset peerID end!")
 	return true
 }
 
@@ -377,16 +378,16 @@ func DDos() bool {
 		ConnNumber      int
 	}
 	if err := files.LoadParams(conf.ParamsFileDir, "DDOS.json", &params); err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
 	height, err := sdk.GetBlockCurrentHeight(params.JsonRpc)
 	if err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	} else {
-		log4.Debug("block height before ddos %d", height)
+		log.Debug("block height before ddos %d", height)
 	}
 
 	pr.SetHeartbeatTestBlockHeight(params.InitBlockHeight)
@@ -396,15 +397,15 @@ func DDos() bool {
 		ns := GenerateNetServerWithContinuePort(protocol, port)
 		peerID := ns.GetID()
 		if err := ns.Connect(params.Remote); err != nil {
-			_ = log4.Error("peer %s connecting to %s failed, err: %s", peerID.ToHexString(), params.Remote, err)
+			log.Errorf("peer %s connecting to %s failed, err: %s", peerID.ToHexString(), params.Remote, err)
 		} else {
-			log4.Debug("peer %s, index %d connecting to %s success", peerID.ToHexString(), int(port)-params.StartPort, params.Remote)
+			log.Debug("peer %s, index %d connecting to %s success", peerID.ToHexString(), int(port)-params.StartPort, params.Remote)
 		}
 	}
 
 	Dispatch(params.DispatchTime)
 
-	log4.Info("ddos attack end!")
+	log.Info("ddos attack end!")
 	return true
 }
 
@@ -418,7 +419,7 @@ func AskFakeBlocks() bool {
 		StartHash, EndHash string
 	}
 	if err := files.LoadParams(conf.ParamsFileDir, "AskFakeBlocks.json", &params); err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
@@ -427,7 +428,7 @@ func AskFakeBlocks() bool {
 	ns := GenerateNetServerWithProtocol(protocol)
 	peer, err := ns.ConnectAndReturnPeer(params.Remote)
 	if err != nil {
-		_ = log4.Error("connecting to %s failed, err: %s", params.Remote, err)
+		log.Errorf("connecting to %s failed, err: %s", params.Remote, err)
 		return false
 	}
 
@@ -439,16 +440,16 @@ func AskFakeBlocks() bool {
 		Len:       1,
 	}
 	if err = peer.Send(req); err != nil {
-		_ = log4.Error("send headersReq failed, err %s", err)
+		log.Errorf("send headersReq failed, err %s", err)
 		return false
 	}
 
 	// Dispatch
 	if msg := protocol.Out(params.DispatchTime); msg != nil {
-		log4.Debug("invalid block endHash accepted by sync node, msg %v", msg)
+		log.Debugf("invalid block endHash accepted by sync node, msg %v", msg)
 		return false
 	} else {
-		log4.Info("invalid block endHash rejected by sync node")
+		log.Info("invalid block endHash rejected by sync node")
 		return true
 	}
 }
@@ -467,32 +468,32 @@ func AttackTxPool() bool {
 	}
 
 	if err := files.LoadParams(conf.ParamsFileDir, "AttackTxPool.json", &params); err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 	if len(params.RemoteList) != len(params.JsonRpcList) {
-		_ = log4.Error("remote transList length != json rpc transList length")
+		log.Error("remote transList length != json rpc transList length")
 		return false
 	}
 
 	// recover account and get balance before transfer
 	acc, err := sdk.RecoverAccount(conf.TransferWalletPath, conf.DefConfig.WalletPwd)
 	if err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
 	// get balance before test
 	balanceBeforeTransfer, err := GetBalanceAndCompare(params.JsonRpcList, acc)
 	if err != nil || len(balanceBeforeTransfer) == 0 {
-		_ = log4.Error("get balance failed")
+		log.Error("get balance failed")
 		return false
 	}
 
 	// get block height before test
 	preBlkHeightList, err := GetBlockHeightList(params.JsonRpcList)
 	if err != nil || len(preBlkHeightList) != len(params.JsonRpcList) {
-		_ = log4.Error("get block height list failed")
+		log.Error("get block height list failed")
 		return false
 	}
 
@@ -502,7 +503,7 @@ func AttackTxPool() bool {
 	// get peers
 	peers, err := GenerateMultiHeartbeatOnlyPeers(params.RemoteList)
 	if err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 	time.Sleep(1 * time.Second)
@@ -511,7 +512,7 @@ func AttackTxPool() bool {
 	var amount uint64 = math.MaxUint64
 	transList, err := GenerateMultiOntTransfer(acc, params.DestAccount, amount, params.TxNum)
 	if err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
@@ -521,7 +522,7 @@ func AttackTxPool() bool {
 	for i := 0; i < num; i++ {
 		for _, peer := range peers {
 			if err := peer.Send(transList[idx]); err != nil {
-				_ = log4.Warn("%s", err)
+				log.Warn(err)
 			}
 			idx++
 		}
@@ -533,7 +534,7 @@ func AttackTxPool() bool {
 	// get balance after transfer
 	balanceAfterTransfer, err := GetBalanceAndCompare(params.JsonRpcList, acc)
 	if err != nil || len(balanceAfterTransfer) == 0 {
-		_ = log4.Error("get balance failed")
+		log.Error("get balance failed")
 		return false
 	}
 
@@ -541,7 +542,7 @@ func AttackTxPool() bool {
 	b1, _ := new(big.Float).SetString(balanceBeforeTransfer[0].Ont)
 	b2, _ := new(big.Float).SetString(balanceAfterTransfer[0].Ont)
 	if b1.Cmp(b2) != 0 {
-		_ = log4.Error("some invalid tx must be blocked")
+		log.Error("some invalid tx must be blocked")
 		return false
 	}
 
@@ -549,10 +550,10 @@ func AttackTxPool() bool {
 	for _, jsonrpc := range params.JsonRpcList {
 		list, err := sdk.GetMemPoolTxCount(jsonrpc)
 		if err != nil {
-			_ = log4.Error("get %s mem pool tx count err: %s", jsonrpc, err)
+			log.Errorf("get %s mem pool tx count err: %s", jsonrpc, err)
 		} else {
 			for i, v := range list {
-				log4.Debug("get %s mem pool tx count %d %d", jsonrpc, i, v)
+				log.Debugf("get %s mem pool tx count %d %d", jsonrpc, i, v)
 			}
 		}
 	}
@@ -561,9 +562,9 @@ func AttackTxPool() bool {
 	//		hash := tx.Txn.Hash()
 	//		tx, err := params.GetTxByHash(jsonrpc, hash)
 	//		if tx != nil || err == nil {
-	//			_ = log4.Warn("invalid tx persisted in txn pool")
+	//			_ = log.Warn("invalid tx persisted in txn pool")
 	//		} else {
-	//			log4.Debug("node %s txnpool without tx %s", jsonrpc, hash.ToHexString())
+	//			log.Debug("node %s txnpool without tx %s", jsonrpc, hash.ToHexString())
 	//		}
 	//	}
 	//}
@@ -571,7 +572,7 @@ func AttackTxPool() bool {
 	// get current block height
 	curBlkHeightList, err := GetBlockHeightList(params.JsonRpcList)
 	if err != nil || len(curBlkHeightList) != len(params.JsonRpcList) {
-		_ = log4.Error("get block height list failed")
+		log.Error("get block height list failed")
 		return false
 	}
 
@@ -581,10 +582,10 @@ func AttackTxPool() bool {
 		cur := curBlkHeightList[i]
 		dif := cur - pre
 		if dif < params.MinExpectedBlkHeightDiff {
-			_ = log4.Error("node %s, block height %d < %d", node, dif, params.MinExpectedBlkHeightDiff)
+			log.Errorf("node %s, block height %d < %d", node, dif, params.MinExpectedBlkHeightDiff)
 			return false
 		} else {
-			log4.Info("current block height %d, pre block height %d, diff %d", cur, pre, dif)
+			log.Info("current block height %d, pre block height %d, diff %d", cur, pre, dif)
 		}
 	}
 
@@ -600,57 +601,57 @@ func DoubleSpend() bool {
 		DestAccount  string
 	}
 	if err := files.LoadParams(conf.ParamsFileDir, "DoubleSpend.json", &params); err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 	if len(params.RemoteList) != len(params.JsonRpcList) {
-		_ = log4.Error("remote list length != json rpc list length")
+		log.Errorf("remote list length != json rpc list length")
 		return false
 	}
 
 	// recover account and get balance before transfer
 	acc, err := sdk.RecoverAccount(conf.TransferWalletPath, conf.DefConfig.WalletPwd)
 	if err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
 	balanceBeforeTransfer, err := GetBalanceAndCompare(params.JsonRpcList, acc)
 	if err != nil || len(balanceBeforeTransfer) == 0 {
-		_ = log4.Error("get balance failed")
+		log.Error("get balance failed")
 		return false
 	}
 
 	// get and set block height
 	if _, err := GetAndSetBlockHeight(params.JsonRpcList[0], 1); err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
 	// get peer
 	peers, err := GenerateMultiHeartbeatOnlyPeers(params.RemoteList)
 	if err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
 	amount, err := strconv.Atoi(balanceBeforeTransfer[0].Ont)
 	if err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
-	log4.Info("=====%s balance %s, and will transfer %d ont", acc.Address.ToBase58(), balanceBeforeTransfer[0].Ont, amount)
+	log.Infof("=====%s balance %s, and will transfer %d ont", acc.Address.ToBase58(), balanceBeforeTransfer[0].Ont, amount)
 
 	// send preTx
 	transList := make([]*types.Trn, 0, len(peers))
 	for _, peer := range peers {
 		tran, err := GenerateTransferOntTx(acc, params.DestAccount, uint64(amount))
 		if err != nil {
-			_ = log4.Error("%s", err)
+			log.Error(err)
 			return false
 		}
 		if err := peer.Send(tran); err != nil {
-			_ = log4.Error("%s", err)
+			log.Error(err)
 			return false
 		}
 		transList = append(transList, tran)
@@ -662,11 +663,11 @@ func DoubleSpend() bool {
 	// get and check balance after transfer
 	balanceAfterTransfer, err := GetBalanceAndCompare(params.JsonRpcList, acc)
 	if err != nil || len(balanceAfterTransfer) == 0 {
-		_ = log4.Error("get balance failed")
+		log.Error("get balance failed")
 		return false
 	}
 	if balanceAfterTransfer[0].Ont != "0" {
-		_ = log4.Error("balance after transfer should be 0")
+		log.Error("balance after transfer should be 0")
 		return false
 	}
 
@@ -677,7 +678,7 @@ func DoubleSpend() bool {
 		for _, jsonrpc := range params.JsonRpcList {
 			curtx, err := sdk.GetTxByHash(jsonrpc, prehash)
 			if err != nil {
-				_ = log4.Error("===== node %s, failed preTx %s", jsonrpc, prehash.ToHexString())
+				log.Errorf("===== node %s, failed preTx %s", jsonrpc, prehash.ToHexString())
 			} else {
 				safehash := strings.ToLower(prehash.ToHexString())
 				succeed[safehash] = struct{}{}
@@ -686,12 +687,12 @@ func DoubleSpend() bool {
 				sink := ontcm.NewZeroCopySink(bz)
 				payload := curtx.Payload
 				payload.Serialization(sink)
-				log4.Debug("===== node %s, succeed preTx %s, payload %s", jsonrpc, prehash.ToHexString(), string(bz))
+				log.Debug("===== node %s, succeed preTx %s, payload %s", jsonrpc, prehash.ToHexString(), string(bz))
 			}
 		}
 	}
 	if len(succeed) > 0 {
-		_ = log4.Warn("===== more than 1 tx in txpool")
+		log.Warn("===== more than 1 tx in txpool")
 	}
 
 	return true
@@ -707,12 +708,12 @@ func TransferOnt() bool {
 	}
 
 	if err := files.LoadParams(conf.ParamsFileDir, "Transfer.json", &params); err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 	err := singleTransfer(params.Remote, params.JsonRpc, params.DestAccount, params.Amount, params.DispatchTime)
 	if err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
@@ -736,7 +737,7 @@ func TxCount() bool {
 	}
 
 	if err := files.LoadParams(conf.ParamsFileDir, "TxCount.json", &params); err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
@@ -750,7 +751,7 @@ func TxCount() bool {
 	// send invalid transfer
 	worker, err := NewInvalidTxWorker(params.Remote)
 	if err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
@@ -774,10 +775,10 @@ func TxCount() bool {
 			hashlist := worker.getHashList(params.TxPerStat)
 			list := cli.statHashList(hashlist)
 			for _, v := range list {
-				log4.Debug("get stat transaction %s, ip %s, port %d, hash %s, send %d, recv %d",
+				log.Debugf("get stat transaction %s, ip %s, port %d, hash %s, send %d, recv %d",
 					v.Hash, v.Ip, v.Port, v.Hash, v.Send, v.Recv)
 				if err := dao.InsertStat(v.Ip, v.Port, v.Hash, v.Send, v.Recv); err != nil {
-					_ = log4.Error("save record in db err :%s", err)
+					log.Errorf("save record in db err :%s", err)
 				}
 			}
 			atomic.AddInt64(&msgCount, int64(len(hashlist)))
@@ -796,7 +797,7 @@ func Neighbor() bool {
 	}
 
 	if err := files.LoadParams(conf.ParamsFileDir, "Neighbor.json", &params); err != nil {
-		_ = log4.Error("%s", err)
+		log.Error(err)
 		return false
 	}
 
@@ -805,7 +806,7 @@ func Neighbor() bool {
 	ns := GenerateNetServerWithProtocol(protocol)
 	pr, err := ns.ConnectAndReturnPeer(params.Remote)
 	if err != nil {
-		_ = log4.Error("connect peer err: %s", err)
+		log.Errorf("connect peer err: %s", err)
 		return false
 	}
 
@@ -825,10 +826,10 @@ func Neighbor() bool {
 			for _, peer := range msg.CloserPeers {
 				ip, _, err := net.SplitHostPort(peer.Address)
 				if err != nil {
-					_ = log4.Error("splitHostPort err: %s", err)
+					log.Errorf("splitHostPort err: %s", err)
 					return false
 				}
-				log4.Info("neighbor: %s", ip)
+				log.Infof("neighbor: %s", ip)
 
 				if _, ok := nbrs[ip]; ok {
 					delete(nbrs, ip)
@@ -840,11 +841,11 @@ func Neighbor() bool {
 
 		case <-ticker.C:
 			if err := pr.Send(req); err != nil {
-				_ = log4.Error("send find neighbor nodes req err %s", err)
+				log.Errorf("send find neighbor nodes req err %s", err)
 				return false
 			}
 			if count++; count > params.Timeout {
-				_ = log4.Error("testcase timeout")
+				log.Error("testcase timeout")
 				return false
 			}
 		}

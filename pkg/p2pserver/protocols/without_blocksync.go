@@ -19,13 +19,18 @@
 package protocols
 
 import (
+	"fmt"
+	"github.com/ontio/ontology/account"
+	"github.com/ontio/ontology/common/config"
+	"github.com/ontio/ontology/common/log"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/utils"
 	"strconv"
 
-	log4 "github.com/alecthomas/log4go"
-	"github.com/ontio/ontology/common/config"
-	msgCommon "github.com/ontology-community/onRobot/pkg/p2pserver/common"
+	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/subnet"
+
+	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	msgTypes "github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/bootstrap"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/discovery"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/heatbeat"
@@ -34,22 +39,39 @@ import (
 )
 
 type WithoutBlockSyncMsgHandler struct {
+	seeds *utils.HostsResolver
+
 	reconnect                *reconnect.ReconnectService
 	discovery                *discovery.Discovery
 	heatBeat                 *heatbeat.HeartBeat
 	bootstrap                *bootstrap.BootstrapService
 	persistRecentPeerService *recent_peers.PersistRecentPeerService
+	subnet                   *subnet.SubNet
 }
 
-func NewWithoutBlockSyncMsgHandler() *WithoutBlockSyncMsgHandler {
-	return &WithoutBlockSyncMsgHandler{}
+func NewWithoutBlockSyncMsgHandler(acc *account.Account, logger common.Logger) *WithoutBlockSyncMsgHandler {
+	m := &WithoutBlockSyncMsgHandler{}
+
+	seedsList := config.DefConfig.Genesis.SeedList
+	seeds, invalid := utils.NewHostsResolver(seedsList)
+	if invalid != nil {
+		panic(fmt.Errorf("invalid seed list； %v", invalid))
+	}
+	gov := utils.NewGovNodeMockResolver(seedsList)
+
+	m.seeds = seeds
+	m.subnet = subnet.NewSubNet(acc, seeds, gov, logger)
+
+	return m
 }
 
 func (self *WithoutBlockSyncMsgHandler) start(net p2p.P2P) {
+
 	self.reconnect = reconnect.NewReconectService(net)
-	self.discovery = discovery.NewDiscovery(net, config.DefConfig.P2PNode.ReservedCfg.MaskPeers, 0)
-	seeds := config.DefConfig.Genesis.SeedList
-	self.bootstrap = bootstrap.NewBootstrapService(net, seeds)
+	maskFilter := self.subnet.GetMaskAddrFilter()
+	self.discovery = discovery.NewDiscovery(net, config.DefConfig.P2PNode.ReservedCfg.MaskPeers, maskFilter, 0)
+	self.bootstrap = bootstrap.NewBootstrapService(net, self.seeds)
+
 	// mark:
 	self.heatBeat = heatbeat.NewHeartBeat(net)
 	self.persistRecentPeerService = recent_peers.NewPersistRecentPeerService(net)
@@ -58,6 +80,7 @@ func (self *WithoutBlockSyncMsgHandler) start(net p2p.P2P) {
 	go self.discovery.Start()
 	go self.heatBeat.Start()
 	go self.bootstrap.Start()
+	go self.subnet.Start(net)
 }
 
 func (self *WithoutBlockSyncMsgHandler) stop() {
@@ -66,6 +89,7 @@ func (self *WithoutBlockSyncMsgHandler) stop() {
 	self.persistRecentPeerService.Stop()
 	self.heatBeat.Stop()
 	self.bootstrap.Stop()
+	self.subnet.Stop()
 }
 
 func (self *WithoutBlockSyncMsgHandler) HandleSystemMessage(net p2p.P2P, msg p2p.SystemMessage) {
@@ -84,6 +108,8 @@ func (self *WithoutBlockSyncMsgHandler) HandleSystemMessage(net p2p.P2P, msg p2p
 		self.persistRecentPeerService.DelNodeAddr(m.Info.Addr + strconv.Itoa(int(m.Info.Port)))
 	case p2p.NetworkStop:
 		self.stop()
+	case p2p.HostAddrDetected:
+		self.subnet.OnHostAddrDetected(m.ListenAddr)
 	}
 }
 
@@ -106,9 +132,8 @@ func (self *WithoutBlockSyncMsgHandler) HandlePeerMessage(ctx *p2p.Context, msg 
 	case *msgTypes.Consensus:
 		ConsensusHandle(ctx, m)
 	case *msgTypes.Trn:
-		log4.Trace("[p2p-without block sync] receive message, type:%s, sender: %s, send pid: %s",
+		log.Tracef("[p2p-without block sync] receive message, type:%s, sender: %s, send pid: %s",
 			msg.CmdType(), ctx.Sender().GetAddr(), pid.ToHexString())
-
 		TransactionHandle(ctx, m)
 	case *msgTypes.Addr:
 		self.discovery.AddrHandle(ctx, m)
@@ -116,16 +141,24 @@ func (self *WithoutBlockSyncMsgHandler) HandlePeerMessage(ctx *p2p.Context, msg 
 		DataReqHandle(ctx, m)
 	case *msgTypes.Inv:
 		InvHandle(ctx, m)
+	case *msgTypes.SubnetMembersRequest:
+		self.subnet.OnMembersRequest(ctx, m)
+	case *msgTypes.SubnetMembers:
+		self.subnet.OnMembersResponse(ctx, m)
 	case *msgTypes.NotFound:
-		log4.Debug("[p2p]receive notFound message, hash is ", m.Hash)
+		log.Debugf("[p2p]receive notFound message, hash is ", m.Hash)
 	default:
 		msgType := msg.CmdType()
-		if msgType == msgCommon.VERACK_TYPE || msgType == msgCommon.VERSION_TYPE {
-			log4.Info("receive message: %s from peer %s", msgType, ctx.Sender().GetAddr())
+		if msgType == common.VERACK_TYPE || msgType == common.VERSION_TYPE {
+			log.Infof("receive message: %s from peer %s", msgType, ctx.Sender().GetAddr())
 		} else {
-			log4.Warn("unknown message handler for the recvCh: ", msgType)
+			log.Warnf("unknown message handler for the recvCh: ", msgType)
 		}
 	}
+}
+
+func (self *WithoutBlockSyncMsgHandler) GetReservedAddrFilter() p2p.AddressFilter {
+	return self.subnet.GetReservedAddrFilter()
 }
 
 func (mh *WithoutBlockSyncMsgHandler) ReconnectService() *reconnect.ReconnectService {

@@ -19,14 +19,15 @@ package handshake
 
 import (
 	"fmt"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/params"
 	"net"
 	"time"
 
 	"github.com/blang/semver"
 	common2 "github.com/ontio/ontology/common"
+
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/params"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
 )
 

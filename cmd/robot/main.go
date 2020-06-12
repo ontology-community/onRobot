@@ -24,7 +24,6 @@ import (
 	"strings"
 	"time"
 
-	log4 "github.com/alecthomas/log4go"
 	_ "github.com/ontology-community/onRobot/internal/robot"
 	core "github.com/ontology-community/onRobot/pkg/frame"
 )
@@ -40,7 +39,6 @@ var (
 
 func init() {
 	flag.StringVar(&Config, "config", "target/robot/config.json", "Config of ontology-tool")
-	flag.StringVar(&LogConfig, "log", "target/robot/log4go.xml", "Log config of ontology-tool")
 	flag.StringVar(&TestCaseConfig, "params", "target/robot/params", "Test params")
 	flag.StringVar(&WalletConfig, "wallet", "target/robot/wallet.dat", "Wallet path")
 	flag.StringVar(&TransferWalletConfig, "transfer", "target/robot/transfer_wallet.dat", "Transfer wallet path")
@@ -50,7 +48,6 @@ func init() {
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
-	log4.LoadConfiguration(LogConfig)
 	conf.SetParamsDir(TestCaseConfig)
 	conf.SetWalletPath(WalletConfig)
 	conf.SetTransferWalletPath(TransferWalletConfig)
@@ -58,8 +55,7 @@ func main() {
 
 	err := conf.DefConfig.Init(Config)
 	if err != nil {
-		log4.Error("DefConfig.Init error:%s", err)
-		return
+		panic(err)
 	}
 
 	methods := make([]string, 0)

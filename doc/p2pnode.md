@@ -30,7 +30,6 @@ httpPort=yourHttpPort
 nodePort=yourNodePort
 
 ./p2pnode -config=${workspace}/config.json \
--log=${workspace}/log4go.xml \
 -httpport=${httpPort} \
 -nodeport=${nodePort}
 ```

@@ -20,7 +20,6 @@ package connect_controller
 import (
 	"net"
 
-	log4 "github.com/alecthomas/log4go"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 )
 
@@ -38,7 +37,7 @@ type Conn struct {
 // Close overwrite net.Conn
 // warning: this method will try to lock the controller, be carefull to avoid deadlock
 func (self *Conn) Close() error {
-	log4.Info("closing connection: peer %s, address: %s", self.kid.ToHexString(), self.addr)
+	self.controller.logger.Infof("closing connection: peer %s, address: %s", self.kid.ToHexString(), self.addr)
 
 	self.controller.removePeer(self)
 

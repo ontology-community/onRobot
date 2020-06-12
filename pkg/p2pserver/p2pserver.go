@@ -22,9 +22,11 @@ import (
 	"strings"
 	"time"
 
-	log4 "github.com/alecthomas/log4go"
+	"github.com/ontio/ontology/account"
 	"github.com/ontio/ontology/common/config"
+	"github.com/ontio/ontology/common/log"
 	"github.com/ontio/ontology/core/ledger"
+
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/net/netserver"
 	p2pnet "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
@@ -37,11 +39,10 @@ type P2PServer struct {
 }
 
 //NewServer return a new p2pserver according to the pubkey
-func NewServer() (*P2PServer, error) {
-	ld := ledger.DefLedger
-
-	protocol := protocols.NewMsgHandler(ld)
-	n, err := netserver.NewNetServer(protocol, config.DefConfig.P2PNode)
+func NewServer(acct *account.Account) (*P2PServer, error) {
+	logger := log.Log
+	protocol := protocols.NewMsgHandler(acct, ledger.DefLedger, logger)
+	n, err := netserver.NewNetServer(protocol, config.DefConfig.P2PNode, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -53,8 +54,8 @@ func NewServer() (*P2PServer, error) {
 	return p, nil
 }
 
-func NewStatServer(protocol p2pnet.Protocol, conf *config.P2PNodeConfig) (*P2PServer, error) {
-	n, err := netserver.NewNetServerWithTxStat(protocol, conf)
+func NewStatServer(protocol p2pnet.Protocol, conf *config.P2PNodeConfig, logger common.Logger) (*P2PServer, error) {
+	n, err := netserver.NewNetServerWithTxStat(protocol, conf, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +86,7 @@ func (this *P2PServer) GetNetwork() p2pnet.P2P {
 func (this *P2PServer) WaitForPeersStart() {
 	periodTime := config.DEFAULT_GEN_BLOCK_TIME / common.UPDATE_RATE_PER_BLOCK
 	for {
-		log4.Info("[p2p]Wait for minimum connection...")
+		log.Info("[p2p]Wait for minimum connection...")
 		if this.reachMinConnection() {
 			break
 		}

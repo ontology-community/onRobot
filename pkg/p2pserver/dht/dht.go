@@ -21,7 +21,7 @@ package dht
 import (
 	"time"
 
-	log4 "github.com/alecthomas/log4go"
+	"github.com/ontio/ontology/common/log"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	kb "github.com/ontology-community/onRobot/pkg/p2pserver/dht/kbucket"
 )
@@ -55,11 +55,11 @@ func NewDHT(id common.PeerId) *DHT {
 	rt := kb.NewRoutingTable(bucketSize, id)
 
 	rt.PeerAdded = func(p common.PeerId) {
-		log4.Debug("dht: peer: %d added to dht", p)
+		log.Debugf("dht: peer: %d added to dht", p)
 	}
 
 	rt.PeerRemoved = func(p common.PeerId) {
-		log4.Debug("dht: peer: %d removed from dht", p)
+		log.Debugf("dht: peer: %d removed from dht", p)
 	}
 
 	return &DHT{

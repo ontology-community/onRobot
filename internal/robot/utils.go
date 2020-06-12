@@ -21,21 +21,6 @@ package robot
 import (
 	"encoding/json"
 	"fmt"
-	log4 "github.com/alecthomas/log4go"
-	"github.com/ontio/ontology/account"
-	ontcm "github.com/ontio/ontology/common"
-	onthttp "github.com/ontio/ontology/http/base/common"
-	"github.com/ontology-community/onRobot/internal/robot/conf"
-	p2pcm "github.com/ontology-community/onRobot/pkg/p2pserver/common"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/httpinfo"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/net/netserver"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/params"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/stat"
-	"github.com/ontology-community/onRobot/pkg/sdk"
 	"io"
 	"io/ioutil"
 	"math"
@@ -44,18 +29,44 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ontio/ontology/account"
+	ontcm "github.com/ontio/ontology/common"
+	"github.com/ontio/ontology/common/log"
+	onthttp "github.com/ontio/ontology/http/base/common"
+
+	"github.com/ontology-community/onRobot/internal/robot/conf"
+
+	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
+	p2pcm "github.com/ontology-community/onRobot/pkg/p2pserver/common"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/httpinfo"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/net/netserver"
+	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/params"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/stat"
+	"github.com/ontology-community/onRobot/pkg/sdk"
 )
 
 const (
 	MaxNetServerNumber = 128
+	LoggerPrefix       = "peer robot"
 )
 
 var (
+	logger common.Logger
 	nsList = make([]*netserver.NetServer, 0, MaxNetServerNumber)
 )
 
+func initLogger() {
+	ctx := fmt.Sprintf("%s:, ", LoggerPrefix)
+	logger = common.LoggerWithContext(log.Log, ctx)
+}
+
 func reset() {
-	log4.Debug("[GC] end testing, stop server and clear instance...")
+	log.Debug("[GC] end testing, stop server and clear instance...")
 	params.Reset()
 	for _, ns := range nsList {
 		if ns != nil {
@@ -69,11 +80,11 @@ func reset() {
 func GenerateNetServerWithProtocol(protocol p2p.Protocol) (ns *netserver.NetServer) {
 	var err error
 
-	if ns, err = netserver.NewNetServer(protocol, conf.DefConfig.Net); err != nil {
-		log4.Crashf("[NewNetServer] crashed, err %s", err)
+	if ns, err = netserver.NewNetServer(protocol, conf.DefConfig.Net, logger); err != nil {
+		log.Fatalf("[NewNetServer] crashed, err %s", err)
 	}
 	if err = ns.Start(); err != nil {
-		log4.Crashf("start netserver failed, err %s", err)
+		log.Fatal("start netserver failed, err %s", err)
 	}
 	nsList = append(nsList, ns)
 	return
@@ -84,30 +95,12 @@ func GenerateNetServerWithContinuePort(protocol p2p.Protocol, port uint16) (ns *
 	var err error
 
 	conf.DefConfig.Net.NodePort = port
-	if ns, err = netserver.NewNetServer(protocol, conf.DefConfig.Net); err != nil {
-		log4.Crashf("[NewNetServer] crashed, err %s", err)
+	if ns, err = netserver.NewNetServer(protocol, conf.DefConfig.Net, logger); err != nil {
+		log.Fatalf("[NewNetServer] crashed, err %s", err)
 		return nil
 	}
 	if err = ns.Start(); err != nil {
-		log4.Crashf("start netserver failed, err %s", err)
-	}
-	nsList = append(nsList, ns)
-	return
-}
-
-func GenerateNetServerWithFakeIP(protocol p2p.Protocol, port uint16, mtx *sync.Mutex) (ns *netserver.NetServer) {
-	var err error
-
-	mtx.Lock()
-	conf.DefConfig.Net.NodePort = port
-	if ns, err = netserver.NewNetServer(protocol, conf.DefConfig.Net); err != nil {
-		mtx.Unlock()
-		log4.Crashf("[NewNetServer] crashed, err %s", err)
-		return nil
-	}
-	mtx.Unlock()
-	if err = ns.Start(); err != nil {
-		log4.Crashf("start netserver failed, err %s", err)
+		log.Fatalf("start netserver failed, err %s", err)
 	}
 	nsList = append(nsList, ns)
 	return
@@ -115,12 +108,12 @@ func GenerateNetServerWithFakeIP(protocol p2p.Protocol, port uint16, mtx *sync.M
 
 func GenerateNetServerWithFakeKid(protocol p2p.Protocol, kid *p2pcm.PeerKeyId) (ns *netserver.NetServer) {
 	var err error
-	if ns, err = netserver.NewNetServerWithKid(protocol, conf.DefConfig.Net, kid); err != nil {
-		log4.Crashf("[NewNetServer] crashed, err %s", err)
+	if ns, err = netserver.NewNetServerWithKid(protocol, conf.DefConfig.Net, kid, logger); err != nil {
+		log.Fatalf("[NewNetServer] crashed, err %s", err)
 		return nil
 	}
 	if err = ns.Start(); err != nil {
-		log4.Crashf("start netserver failed, err %s", err)
+		log.Fatalf("start netserver failed, err %s", err)
 	}
 	nsList = append(nsList, ns)
 	return
@@ -148,7 +141,7 @@ func GetAndSetBlockHeight(jsonrpcAddr string, alpha uint64) (uint64, error) {
 	if err != nil {
 		return 0, err
 	} else {
-		log4.Debug("current block height %d", curHeight)
+		log.Debugf("current block height %d", curHeight)
 	}
 	params.SetHeartbeatTestBlockHeight(curHeight + alpha)
 	return curHeight, nil
@@ -199,7 +192,7 @@ func GenerateTransferOntTx(acc *account.Account, dst string, amount uint64) (*ty
 		return nil, err
 	}
 	hash := tran.Hash()
-	log4.Info("transaction hash %s", hash.ToHexString())
+	log.Infof("transaction hash %s", hash.ToHexString())
 	tx := &types.Trn{Txn: tran}
 
 	return tx, nil
@@ -215,7 +208,7 @@ func GenerateMultiOntTransfer(acc *account.Account, dst string, amount uint64, n
 			return nil, err
 		}
 		hash := tran.Txn.Hash()
-		log4.Info("transaction hash %s", hash.ToHexString())
+		log.Infof("transaction hash %s", hash.ToHexString())
 		list = append(list, tran)
 	}
 
@@ -332,7 +325,7 @@ func (c *httpClient) statMsgCount() map[string]*stat.TxNum {
 			time.Sleep(100 * time.Millisecond)
 			data, err := c.getStatResult(ip, p, httpinfo.StatList)
 			if err != nil {
-				_ = log4.Error("[send/count] err:%s", err)
+				log.Errorf("[send/count] err:%s", err)
 			} else {
 				for _, v := range data {
 					if _, ok := list[v.Hash]; !ok {
@@ -349,13 +342,13 @@ func (c *httpClient) statMsgCount() map[string]*stat.TxNum {
 }
 
 func (c *httpClient) clearMsgCount() {
-	log4.Debug("clear msg stat")
+	log.Debug("clear msg stat")
 
 	for _, ip := range c.ips {
 		for p := c.startHttpPort; p <= c.endHttpPort; p++ {
 			time.Sleep(100 * time.Millisecond)
 			if err := c.getClearResult(ip, p, httpinfo.StatClear); err != nil {
-				_ = log4.Error("[send/count] err:%s", err)
+				log.Errorf("[send/count] err:%s", err)
 			}
 		}
 	}
@@ -375,7 +368,7 @@ func (c *httpClient) statHashList(hashlist []string) []*WrapTxNum {
 			time.Sleep(100 * time.Millisecond)
 			data, err := c.getHashListResult(ip, p, httpinfo.StatHashList, hashlist)
 			if err != nil {
-				_ = log4.Error("[send/count] err:%s", err)
+				log.Errorf("[send/count] err:%s", err)
 			} else {
 				for _, v := range data {
 					tx := &WrapTxNum{Ip: ip, Port: p, TxNum: stat.TxNum{
@@ -630,14 +623,14 @@ func singleTransfer(remote, jsonrpc, dest string, amount uint64, expire int) err
 	tx, err := sdk.GetTxByHash(jsonrpc, hash)
 	if err == nil {
 		hash1 := tx.Hash()
-		log4.Debug("===== node %s, origin tx %s, succeed tx %s", jsonrpc, hash.ToHexString(), hash1.ToHexString())
+		log.Debugf("===== node %s, origin tx %s, succeed tx %s", jsonrpc, hash.ToHexString(), hash1.ToHexString())
 	} else {
-		_ = log4.Error("===== node %s, origin tx %s failed", jsonrpc, hash.ToHexString())
+		log.Errorf("===== node %s, origin tx %s failed", jsonrpc, hash.ToHexString())
 	}
 
-	log4.Info("===== src address %s, dst address %s", acc.Address.ToBase58(), dest)
-	log4.Info("===== before transfer, src %s, dst %s, ", srcbfTx.Ont, dstbfTx.Ont)
-	log4.Info("===== after transfer, src %s, dst %s, ", srcafTx.Ont, dstafTx.Ont)
+	log.Infof("===== src address %s, dst address %s", acc.Address.ToBase58(), dest)
+	log.Infof("===== before transfer, src %s, dst %s, ", srcbfTx.Ont, dstbfTx.Ont)
+	log.Infof("===== after transfer, src %s, dst %s, ", srcafTx.Ont, dstafTx.Ont)
 
 	return nil
 }

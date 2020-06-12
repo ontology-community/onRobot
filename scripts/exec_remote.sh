@@ -36,7 +36,7 @@ single() {
     httpPort=`expr ${startHttpPort} + ${idx}`
     nodePort=`expr ${startNodePort} + ${idx}`
     name=p2pnode${idx}
-    cmd="nohup ./p2pnode -config=${workspace}/config.json -log=${workspace}/log4go.xml -httpport=${httpPort} -nodeport=${nodePort} > $name.log &"
+    cmd="nohup ./p2pnode -config=${workspace}/config.json -httpport=${httpPort} -nodeport=${nodePort} > $name.log &"
     ssh root@${ip} "cd ${workspace}; rm -rf ${name}.log; ${cmd}"
 }
 
