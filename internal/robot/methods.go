@@ -27,6 +27,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ontio/ontology-crypto/keypair"
+	"github.com/ontio/ontology/account"
 	ontcm "github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/common/log"
 	"github.com/ontology-community/onRobot/internal/robot/conf"
@@ -35,6 +37,7 @@ import (
 	p2pcm "github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/handshake"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/net/netserver"
 	pr "github.com/ontology-community/onRobot/pkg/p2pserver/params"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols"
 	"github.com/ontology-community/onRobot/pkg/sdk"
@@ -93,7 +96,7 @@ func FakePeerID() bool {
 	}
 	pkid := p2pcm.FakePeerKeyId(list[0])
 
-	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	protocol := protocols.NewHeartbeatHandler()
 	ns := GenerateNetServerWithFakeKid(protocol, pkid)
 	if err := ns.Connect(params.Remote); err != nil {
 		log.Error(err)
@@ -102,7 +105,7 @@ func FakePeerID() bool {
 		log.Infof("%s connected", pid.ToHexString())
 	}
 
-	Dispatch(params.DispatchTime)
+	dispatch(params.DispatchTime)
 	log.Info("fake peer id success!")
 
 	return true
@@ -123,7 +126,7 @@ func Connect() bool {
 	pr.SetHandshakeStopLevel(params.TestCase)
 
 	// 3. setup p2p.protocols
-	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	protocol := protocols.NewHeartbeatHandler()
 	ns := GenerateNetServerWithProtocol(protocol)
 
 	// 4. connect and handshake
@@ -182,7 +185,7 @@ func HandshakeWrongMsg() bool {
 	}
 
 	handshake.SetTestVersion(version)
-	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	protocol := protocols.NewHeartbeatHandler()
 	ns := GenerateNetServerWithProtocol(protocol)
 
 	if err := ns.Connect(params.Remote); err == nil {
@@ -190,7 +193,7 @@ func HandshakeWrongMsg() bool {
 		return false
 	}
 
-	Dispatch(params.DispatchTime)
+	dispatch(params.DispatchTime)
 
 	log.Info("handshakeWrongMsg end!")
 
@@ -209,7 +212,7 @@ func HandshakeTimeout() bool {
 		return false
 	}
 
-	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	protocol := protocols.NewHeartbeatHandler()
 	ns := GenerateNetServerWithProtocol(protocol)
 
 	pr.SetHandshakeClientTimeout(params.ClientBlockTime)
@@ -246,7 +249,7 @@ func Heartbeat() bool {
 		return false
 	}
 
-	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	protocol := protocols.NewHeartbeatHandler()
 	ns := GenerateNetServerWithProtocol(protocol)
 
 	pr.SetHeartbeatTestBlockHeight(params.InitBlockHeight)
@@ -255,7 +258,7 @@ func Heartbeat() bool {
 		return false
 	}
 
-	Dispatch(params.DispatchTime)
+	dispatch(params.DispatchTime)
 
 	log.Info("heartbeat end!")
 	return true
@@ -278,7 +281,7 @@ func HeartbeatInterruptPing() bool {
 	pr.SetHeartbeatTestInterruptAfterStartTime(params.InterruptAfterStartTime)
 	pr.SetHeartbeatTestInterruptPingLastTime(params.InterruptLastTime)
 
-	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	protocol := protocols.NewHeartbeatHandler()
 	ns := GenerateNetServerWithProtocol(protocol)
 
 	if err := ns.Connect(params.Remote); err != nil {
@@ -286,7 +289,7 @@ func HeartbeatInterruptPing() bool {
 		return false
 	}
 
-	Dispatch(params.DispatchTime)
+	dispatch(params.DispatchTime)
 
 	log.Info("heartbeat end!")
 	return true
@@ -309,7 +312,7 @@ func HeartbeatInterruptPong() bool {
 	pr.SetHeartbeatTestInterruptAfterStartTime(params.InterruptAfterStartTime)
 	pr.SetHeartbeatTestInterruptPongLastTime(params.InterruptLastTime)
 
-	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	protocol := protocols.NewHeartbeatHandler()
 	ns := GenerateNetServerWithProtocol(protocol)
 
 	if err := ns.Connect(params.Remote); err != nil {
@@ -317,7 +320,7 @@ func HeartbeatInterruptPong() bool {
 		return false
 	}
 
-	Dispatch(params.DispatchTime)
+	dispatch(params.DispatchTime)
 
 	log.Info("heartbeat end!")
 	return true
@@ -338,7 +341,7 @@ func ResetPeerID() bool {
 	}
 
 	pr.SetHeartbeatTestBlockHeight(params.InitBlockHeight)
-	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	protocol := protocols.NewHeartbeatHandler()
 	ns := GenerateNetServerWithProtocol(protocol)
 
 	if err := ns.Connect(params.Remote); err != nil {
@@ -359,7 +362,7 @@ func ResetPeerID() bool {
 		return true
 	}
 
-	Dispatch(params.DispatchTime)
+	dispatch(params.DispatchTime)
 
 	log.Info("reset peerID end!")
 	return true
@@ -395,7 +398,7 @@ func DDos() bool {
 	pr.SetHeartbeatTestBlockHeight(params.InitBlockHeight)
 	for i := 0; i < params.ConnNumber; i++ {
 		port := uint16(params.StartPort + i)
-		protocol := protocols.NewOnlyHeartbeatMsgHandler()
+		protocol := protocols.NewHeartbeatHandler()
 		ns := GenerateNetServerWithContinuePort(protocol, port)
 		peerID := ns.GetID()
 		if err := ns.Connect(params.Remote); err != nil {
@@ -405,7 +408,7 @@ func DDos() bool {
 		}
 	}
 
-	Dispatch(params.DispatchTime)
+	dispatch(params.DispatchTime)
 
 	log.Info("ddos attack end!")
 	return true
@@ -426,7 +429,7 @@ func AskFakeBlocks() bool {
 	}
 
 	pr.SetHeartbeatTestBlockHeight(params.InitBlockHeight)
-	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	protocol := protocols.NewHeartbeatHandler()
 	ns := GenerateNetServerWithProtocol(protocol)
 	peer, err := ns.ConnectAndReturnPeer(params.Remote)
 	if err != nil {
@@ -446,7 +449,7 @@ func AskFakeBlocks() bool {
 		return false
 	}
 
-	// Dispatch
+	// dispatch
 	if msg := protocol.Out(params.DispatchTime); msg != nil {
 		log.Errorf("invalid block endHash accepted by sync node, msg %v", msg)
 		return false
@@ -531,7 +534,7 @@ func AttackTxPool() bool {
 	}
 
 	// dispatch
-	Dispatch(params.DispatchTime)
+	dispatch(params.DispatchTime)
 
 	// get balance after transfer
 	balanceAfterTransfer, err := GetBalanceAndCompare(params.JsonRpcList, acc)
@@ -649,7 +652,7 @@ func DoubleSpend() bool {
 	}
 
 	// dispatch
-	Dispatch(params.DispatchTime)
+	dispatch(params.DispatchTime)
 
 	// get and check balance after transfer
 	balanceAfterTransfer, err := GetBalanceAndCompare(params.JsonRpcList, acc)
@@ -841,4 +844,88 @@ func Neighbor() bool {
 			}
 		}
 	}
+}
+
+func Subnet() bool {
+	var params struct {
+		Seed     []string
+		Normal   []string
+		Gov      []string
+		Dispatch int
+	}
+
+	if err := files.LoadParams(conf.ParamsFileDir, "Subnet.json", &params); err != nil {
+		log.Error(err)
+		return false
+	}
+
+	// 总共11个节点，最开始起10个节点，然后动态增加/删除1个节点
+	S := len(params.Seed)
+	G := len(params.Gov)
+	N := len(params.Normal)
+	T := S + G + N
+
+	accList := make([]*account.Account, T)
+	govPubKeys := make([]keypair.PublicKey, 0)
+	for i := 0; i < T; i++ {
+		accList[i] = account.NewAccount("")
+		if i >= S && i < S+G {
+			govPubKeys = append(govPubKeys, accList[i].PublicKey)
+		}
+	}
+
+	nodeList := make([]*netserver.NetServer, T)
+	for i := 0; i < T; i++ {
+		var host string
+		if i < S {
+			host = params.Seed[i]
+		} else if i >= S && i < S+G {
+			host = params.Gov[i-S]
+		} else {
+			host = params.Normal[i-S-G]
+		}
+		node, err := GenerateNetServerWithSubnet(govPubKeys, accList[i], params.Seed, host)
+		if err != nil {
+			log.Error(err)
+			return false
+		}
+		nodeList[i] = node
+		go node.Start()
+	}
+
+	dispatch(params.Dispatch)
+
+	log.Info("===============================[check seed node]=====================================")
+	for i := 0; i < T; i++ {
+		var local string
+		if i < S {
+			local = params.Seed[i]
+		} else if i >= S && i < S+G {
+			local = params.Gov[i-S]
+		} else {
+			local = params.Normal[i-S-G]
+		}
+
+		node := nodeList[i]
+		memList := getSubnetMemberInfo(node.Protocol())
+
+		for _, info := range memList {
+			log.Infof("local %s, listenAddr:%s, connected: %v", local, info.ListenAddr, info.Connected)
+		}
+		nbs := node.GetNeighbors()
+		for _, nb := range nbs {
+			log.Infof("local %s, neighbor %s", local, nb.GetAddr())
+		}
+
+		//if len(memList) != G {
+		//	log.Errorf("local %s, length of subnet member %d != G",  local, len(memList))
+		//	return false
+		//}
+		//if len(nbs) != T -1 {
+		//	log.Errorf("local %s, connection count %d != T - 1", local, len(nbs))
+		//	return false
+		//}
+	}
+
+	return true
 }

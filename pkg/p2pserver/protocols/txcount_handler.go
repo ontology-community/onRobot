@@ -38,7 +38,7 @@ import (
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/reconnect"
 )
 
-type WithoutBlockSyncMsgHandler struct {
+type TxCountHandler struct {
 	seeds *utils.HostsResolver
 
 	reconnect                *reconnect.ReconnectService
@@ -49,8 +49,8 @@ type WithoutBlockSyncMsgHandler struct {
 	subnet                   *subnet.SubNet
 }
 
-func NewWithoutBlockSyncMsgHandler(acc *account.Account) *WithoutBlockSyncMsgHandler {
-	m := &WithoutBlockSyncMsgHandler{}
+func NewTxCountHandler(acc *account.Account) *TxCountHandler {
+	m := &TxCountHandler{}
 
 	seedsList := config.DefConfig.Genesis.SeedList
 	seeds, invalid := utils.NewHostsResolver(seedsList)
@@ -65,7 +65,7 @@ func NewWithoutBlockSyncMsgHandler(acc *account.Account) *WithoutBlockSyncMsgHan
 	return m
 }
 
-func (self *WithoutBlockSyncMsgHandler) start(net p2p.P2P) {
+func (self *TxCountHandler) start(net p2p.P2P) {
 
 	self.reconnect = reconnect.NewReconectService(net)
 	maskFilter := self.subnet.GetMaskAddrFilter()
@@ -83,7 +83,7 @@ func (self *WithoutBlockSyncMsgHandler) start(net p2p.P2P) {
 	go self.subnet.Start(net)
 }
 
-func (self *WithoutBlockSyncMsgHandler) stop() {
+func (self *TxCountHandler) stop() {
 	self.reconnect.Stop()
 	self.discovery.Stop()
 	self.persistRecentPeerService.Stop()
@@ -92,7 +92,7 @@ func (self *WithoutBlockSyncMsgHandler) stop() {
 	self.subnet.Stop()
 }
 
-func (self *WithoutBlockSyncMsgHandler) HandleSystemMessage(net p2p.P2P, msg p2p.SystemMessage) {
+func (self *TxCountHandler) HandleSystemMessage(net p2p.P2P, msg p2p.SystemMessage) {
 	switch m := msg.(type) {
 	case p2p.NetworkStart:
 		self.start(net)
@@ -113,7 +113,7 @@ func (self *WithoutBlockSyncMsgHandler) HandleSystemMessage(net p2p.P2P, msg p2p
 	}
 }
 
-func (self *WithoutBlockSyncMsgHandler) HandlePeerMessage(ctx *p2p.Context, msg msgTypes.Message) {
+func (self *TxCountHandler) HandlePeerMessage(ctx *p2p.Context, msg msgTypes.Message) {
 	pid := ctx.Sender().GetID()
 
 	switch m := msg.(type) {
@@ -157,10 +157,6 @@ func (self *WithoutBlockSyncMsgHandler) HandlePeerMessage(ctx *p2p.Context, msg 
 	}
 }
 
-func (self *WithoutBlockSyncMsgHandler) GetReservedAddrFilter() p2p.AddressFilter {
+func (self *TxCountHandler) GetReservedAddrFilter() p2p.AddressFilter {
 	return self.subnet.GetReservedAddrFilter()
-}
-
-func (mh *WithoutBlockSyncMsgHandler) ReconnectService() *reconnect.ReconnectService {
-	return mh.reconnect
 }

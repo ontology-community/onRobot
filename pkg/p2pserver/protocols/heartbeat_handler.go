@@ -34,27 +34,27 @@ type RemoteMessage struct {
 	Message msgTypes.Message
 }
 
-type OnlyHeartbeatMsgHandler struct {
+type HeartbeatHandler struct {
 	heatBeat *heatbeat.HeartBeat
 	recvCh   chan *RemoteMessage
 }
 
-func NewOnlyHeartbeatMsgHandler() *OnlyHeartbeatMsgHandler {
-	return &OnlyHeartbeatMsgHandler{
+func NewHeartbeatHandler() *HeartbeatHandler {
+	return &HeartbeatHandler{
 		recvCh: make(chan *RemoteMessage, 100),
 	}
 }
 
-func (self *OnlyHeartbeatMsgHandler) start(net p2p.P2P) {
+func (self *HeartbeatHandler) start(net p2p.P2P) {
 	self.heatBeat = heatbeat.NewHeartBeat(net)
 	go self.heatBeat.Start()
 }
 
-func (self *OnlyHeartbeatMsgHandler) stop() {
+func (self *HeartbeatHandler) stop() {
 	self.heatBeat.Stop()
 }
 
-func (self *OnlyHeartbeatMsgHandler) HandleSystemMessage(net p2p.P2P, msg p2p.SystemMessage) {
+func (self *HeartbeatHandler) HandleSystemMessage(net p2p.P2P, msg p2p.SystemMessage) {
 	switch m := msg.(type) {
 	case p2p.NetworkStart:
 		self.start(net)
@@ -67,7 +67,7 @@ func (self *OnlyHeartbeatMsgHandler) HandleSystemMessage(net p2p.P2P, msg p2p.Sy
 	}
 }
 
-func (self *OnlyHeartbeatMsgHandler) HandlePeerMessage(ctx *p2p.Context, msg msgTypes.Message) {
+func (self *HeartbeatHandler) HandlePeerMessage(ctx *p2p.Context, msg msgTypes.Message) {
 	log.Tracef("[p2p]receive message, remote address %s, id %d, type %s", ctx.Sender().GetAddr(), ctx.Sender().GetID().ToUint64(), msg.CmdType())
 	switch m := msg.(type) {
 	case *msgTypes.Ping:
@@ -90,28 +90,28 @@ func (self *OnlyHeartbeatMsgHandler) HandlePeerMessage(ctx *p2p.Context, msg msg
 	}
 }
 
-func (self *OnlyHeartbeatMsgHandler) GetReservedAddrFilter() p2p.AddressFilter {
+func (self *HeartbeatHandler) GetReservedAddrFilter() p2p.AddressFilter {
 	return nil
 }
 
-func (self *OnlyHeartbeatMsgHandler) BlockHeaderHandler(ctx *p2p.Context, msg *msgTypes.BlkHeader) {
+func (self *HeartbeatHandler) BlockHeaderHandler(ctx *p2p.Context, msg *msgTypes.BlkHeader) {
 	self.recvCh <- &RemoteMessage{
 		Context: ctx,
 		Message: msg,
 	}
 }
 
-func (self *OnlyHeartbeatMsgHandler) BlockHandler(ctx *p2p.Context, msg *msgTypes.Block) {
+func (self *HeartbeatHandler) BlockHandler(ctx *p2p.Context, msg *msgTypes.Block) {
 	self.recvCh <- &RemoteMessage{
 		Context: ctx,
 		Message: msg,
 	}
 }
 
-func (self *OnlyHeartbeatMsgHandler) TranHandler(ctx *p2p.Context, msg *msgTypes.Trn) {
+func (self *HeartbeatHandler) TranHandler(ctx *p2p.Context, msg *msgTypes.Trn) {
 }
 
-func (self *OnlyHeartbeatMsgHandler) Out(sec int) *RemoteMessage {
+func (self *HeartbeatHandler) Out(sec int) *RemoteMessage {
 	timer := time.NewTimer(time.Second * time.Duration(sec))
 	select {
 	case msg := <-self.recvCh:

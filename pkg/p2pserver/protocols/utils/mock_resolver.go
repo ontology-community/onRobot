@@ -19,14 +19,11 @@
 package utils
 
 import (
-	"github.com/ontio/ontology-crypto/keypair"
-	"github.com/ontio/ontology/consensus/vbft/config"
-	storage "github.com/ontology-community/onRobot/pkg/dao"
 	"sync"
-	"time"
-)
 
-const GovNodeRefreshDuration = 60
+	"github.com/ontio/ontology-crypto/keypair"
+	vconfig "github.com/ontio/ontology/consensus/vbft/config"
+)
 
 type GovNodeMockResolver struct {
 	mu      *sync.RWMutex
@@ -41,34 +38,7 @@ func NewGovNodeMockResolver() *GovNodeMockResolver {
 		mu:      new(sync.RWMutex),
 	}
 
-	go resolver.refresh()
-
 	return resolver
-}
-
-func (self *GovNodeMockResolver) refresh() {
-	tr := time.NewTimer(0)
-	for {
-		select {
-		case <-tr.C:
-			self.cached()
-			// channel length should be 0 before reset
-			if len(tr.C) == 0 {
-				tr.Reset(GovNodeRefreshDuration * time.Second)
-			}
-		default:
-		}
-	}
-}
-
-func (self *GovNodeMockResolver) cached() {
-	peers := storage.GetAllSubnet()
-
-	self.mu.Lock()
-	for _, node := range peers {
-		self.govNode[node] = struct{}{}
-	}
-	self.mu.Unlock()
 }
 
 func (self *GovNodeMockResolver) IsGovNode(key keypair.PublicKey) bool {
@@ -78,4 +48,21 @@ func (self *GovNodeMockResolver) IsGovNode(key keypair.PublicKey) bool {
 	pubKey := vconfig.PubkeyID(key)
 	_, ok := self.govNode[pubKey]
 	return ok
+}
+
+func (self *GovNodeMockResolver) AddGovNode(key keypair.PublicKey) {
+	self.mu.Lock()
+	defer self.mu.Unlock()
+
+	pubKey := vconfig.PubkeyID(key)
+	self.govNode[pubKey] = struct{}{}
+}
+
+func (self *GovNodeMockResolver) DelGovNode(key keypair.PublicKey) {
+	self.mu.Lock()
+	defer self.mu.Unlock()
+
+	pubKey := vconfig.PubkeyID(key)
+
+	delete(self.govNode, pubKey)
 }

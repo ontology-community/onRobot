@@ -91,7 +91,7 @@ func initTxPool() (*proc.TXPoolServer, error) {
 }
 
 func initProtocol() p2p.Protocol {
-	return protocols.NewWithoutBlockSyncMsgHandler(acc)
+	return protocols.NewTxCountHandler(acc)
 }
 
 func initP2PNode(txpoolSvr *proc.TXPoolServer, handler p2p.Protocol) (*p2pserver.P2PServer, error) {

@@ -25,28 +25,32 @@ import (
 	"io/ioutil"
 	"math"
 	"math/rand"
+	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ontio/ontology-crypto/keypair"
 
 	"github.com/ontio/ontology/account"
 	ontcm "github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/common/log"
 	onthttp "github.com/ontio/ontology/http/base/common"
-
 	"github.com/ontology-community/onRobot/internal/robot/conf"
+	"github.com/ontology-community/onRobot/pkg/sdk"
 
 	p2pcm "github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/httpinfo"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/net/netserver"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/params"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/utils"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/stat"
-	"github.com/ontology-community/onRobot/pkg/sdk"
 )
 
 const (
@@ -111,9 +115,20 @@ func GenerateNetServerWithFakeKid(protocol p2p.Protocol, kid *p2pcm.PeerKeyId) (
 	return
 }
 
+func GenerateNetServerWithSubnet(govPubKeys []keypair.PublicKey, acc *account.Account, seeds []string, host string) (*netserver.NetServer, error) {
+	if err := settleDefConfigPort(host); err != nil {
+		return nil, err
+	}
+	resolver := utils.NewGovNodeMockResolver()
+	addMultiGovNodes(resolver, govPubKeys)
+	protocol := protocols.NewSubnetHandler(acc, seeds, resolver)
+	node, err := netserver.NewNetServer(protocol, conf.DefConfig.Net)
+	return node, err
+}
+
 // GenerateMultiHeartbeatOnlyPeers
 func GenerateMultiHeartbeatOnlyPeers(remoteList []string) ([]*peer.Peer, error) {
-	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	protocol := protocols.NewHeartbeatHandler()
 	ns := GenerateNetServerWithProtocol(protocol)
 	peers := make([]*peer.Peer, 0, len(remoteList))
 	for _, remote := range remoteList {
@@ -264,8 +279,8 @@ func distance(local, target p2pcm.PeerId) int {
 	return p2pcm.CommonPrefixLen(local, target)
 }
 
-// Dispatch
-func Dispatch(sec int) {
+// dispatch
+func dispatch(sec int) {
 	expire := time.Duration(sec) * time.Second
 	time.Sleep(expire)
 }
@@ -499,7 +514,7 @@ type invalidTxWorker struct {
 }
 
 func NewInvalidTxWorker(remote string) (*invalidTxWorker, error) {
-	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	protocol := protocols.NewHeartbeatHandler()
 	ns := GenerateNetServerWithProtocol(protocol)
 	pr, err := ns.ConnectAndReturnPeer(remote)
 	if err != nil {
@@ -592,7 +607,7 @@ func singleTransfer(remote, jsonrpc, dest string, amount uint64, expire int) err
 	}
 	hash := tran.Txn.Hash()
 
-	protocol := protocols.NewOnlyHeartbeatMsgHandler()
+	protocol := protocols.NewHeartbeatHandler()
 	ns := GenerateNetServerWithProtocol(protocol)
 	pr, err := ns.ConnectAndReturnPeer(remote)
 	if err != nil {
@@ -602,7 +617,7 @@ func singleTransfer(remote, jsonrpc, dest string, amount uint64, expire int) err
 		return err
 	}
 
-	Dispatch(expire)
+	dispatch(expire)
 	srcafTx, err := sdk.GetBalance(jsonrpc, acc.Address)
 	if err != nil {
 		return err
@@ -629,4 +644,32 @@ func singleTransfer(remote, jsonrpc, dest string, amount uint64, expire int) err
 
 func assembleIpAndPort(ip string, port uint16) string {
 	return fmt.Sprintf("%s:%d", ip, port)
+}
+
+func addMultiGovNodes(resolver utils.GovNodeResolver, kps []keypair.PublicKey) {
+	for _, kp := range kps {
+		resolver.AddGovNode(kp)
+	}
+}
+
+func getSubnetMemberInfo(protocol p2p.Protocol) []p2pcm.SubnetMemberInfo {
+	handler, ok := protocol.(*protocols.SubnetHandler)
+	if !ok {
+		return nil
+	}
+
+	return handler.GetSubnetMembersInfo()
+}
+
+func settleDefConfigPort(addr string) error {
+	_, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return err
+	}
+	iport, err := strconv.Atoi(port)
+	if err != nil {
+		return err
+	}
+	conf.DefConfig.Net.NodePort = uint16(iport)
+	return nil
 }
