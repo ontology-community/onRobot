@@ -20,15 +20,16 @@ package p2pnode
 
 import (
 	"fmt"
+
 	"github.com/ontio/ontology/account"
+	"github.com/ontology-community/onRobot/pkg/dao"
 	"github.com/ontology-community/onRobot/pkg/sdk"
 
-	log "github.com/ontio/ontology/common/log"
+	"github.com/ontio/ontology/common/log"
 	"github.com/ontio/ontology/events"
 	"github.com/ontology-community/onRobot/internal/p2pnode/conf"
 	"github.com/ontology-community/onRobot/pkg/p2pserver"
 	netreqactor "github.com/ontology-community/onRobot/pkg/p2pserver/actor/req"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/httpinfo"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/net/netserver"
 	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
@@ -37,17 +38,14 @@ import (
 	"github.com/ontology-community/onRobot/pkg/txnpool/proc"
 )
 
-const LoggerPrefix = "peer robot"
-
 var (
-	logger common.Logger
-	acc    *account.Account
+	acc *account.Account
 )
 
 func NewNode(walletpath, pwd string) {
 	events.Init()
+	initMysql()
 
-	initLogger()
 	if err := initAccount(walletpath, pwd); err != nil {
 		log.Fatal(err)
 	}
@@ -58,17 +56,13 @@ func NewNode(walletpath, pwd string) {
 	}
 	msghandler := initProtocol()
 
-	p2p, err := initP2PNode(tp, msghandler)
+	node, err := initP2PNode(tp, msghandler)
 	if err != nil {
 		log.Fatal(err)
 	}
-	ns := p2p.GetNetwork().(*netserver.NetServer)
-	httpinfo.RunTxInfoHttpServer(ns, conf.DefConfig.Net.HttpInfoPort)
-}
 
-func initLogger() {
-	ctx := fmt.Sprintf("%s:, ", LoggerPrefix)
-	logger = common.LoggerWithContext(log.Log, ctx)
+	ns := node.GetNetwork().(*netserver.NetServer)
+	httpinfo.RunTxInfoHttpServer(ns, conf.DefConfig.Net.HttpInfoPort)
 }
 
 func initAccount(walletpath, pwd string) error {
@@ -77,6 +71,10 @@ func initAccount(walletpath, pwd string) error {
 		return err
 	}
 	return nil
+}
+
+func initMysql() {
+	dao.NewDao(conf.DefConfig.Mysql)
 }
 
 func initTxPool() (*proc.TXPoolServer, error) {
@@ -93,7 +91,7 @@ func initTxPool() (*proc.TXPoolServer, error) {
 }
 
 func initProtocol() p2p.Protocol {
-	return protocols.NewWithoutBlockSyncMsgHandler(acc, logger)
+	return protocols.NewWithoutBlockSyncMsgHandler(acc)
 }
 
 func initP2PNode(txpoolSvr *proc.TXPoolServer, handler p2p.Protocol) (*p2pserver.P2PServer, error) {

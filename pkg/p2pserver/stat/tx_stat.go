@@ -35,7 +35,7 @@ func (s *TxStat) HandleSendMsg(peerId common.PeerId, message types.Message) {
 			hash := h.ToHexString()
 			s.GenerateTxNum(hash)
 			s.data[hash].Send += 1
-			log.Tracef("send received tx %s, count %d", hash, s.data[hash].Send)
+			log.Debugf("send received tx %s, count %d", hash, s.data[hash].Send)
 			s.mu.Unlock()
 		}
 	}

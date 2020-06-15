@@ -30,7 +30,7 @@ import (
 	ontcm "github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/common/log"
 	"github.com/ontology-community/onRobot/internal/robot/conf"
-	"github.com/ontology-community/onRobot/internal/robot/dao"
+	"github.com/ontology-community/onRobot/pkg/dao"
 	"github.com/ontology-community/onRobot/pkg/files"
 	p2pcm "github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/handshake"

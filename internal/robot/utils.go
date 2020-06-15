@@ -37,12 +37,11 @@ import (
 
 	"github.com/ontology-community/onRobot/internal/robot/conf"
 
-	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	p2pcm "github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/httpinfo"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/net/netserver"
-	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/params"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols"
@@ -52,18 +51,11 @@ import (
 
 const (
 	MaxNetServerNumber = 128
-	LoggerPrefix       = "peer robot"
 )
 
 var (
-	logger common.Logger
 	nsList = make([]*netserver.NetServer, 0, MaxNetServerNumber)
 )
-
-func initLogger() {
-	ctx := fmt.Sprintf("%s:, ", LoggerPrefix)
-	logger = common.LoggerWithContext(log.Log, ctx)
-}
 
 func reset() {
 	log.Debug("[GC] end testing, stop server and clear instance...")

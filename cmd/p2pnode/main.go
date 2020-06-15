@@ -36,8 +36,8 @@ var (
 
 func init() {
 	flag.StringVar(&Config, "config", "target/node/config.json", "Config of ontology-tool")
-	flag.UintVar(&httpPort, "httpport", 30004, "http info port")
-	flag.UintVar(&nodePort, "nodeport", 40004, "http info port")
+	flag.UintVar(&httpPort, "httpport", 30001, "http info port")
+	flag.UintVar(&nodePort, "nodeport", 40001, "p2pnode port")
 	flag.StringVar(&walletPath, "wallet", "target/node/wallet.dat", "wallet path")
 	flag.StringVar(&walletPwd, "pwd", "123456", "wallet password")
 	flag.Parse()

@@ -10,10 +10,12 @@ rm -rf *.log
 rm -rf log
 rm -rf nohup.out
 rm -rf p2pnode
+rm -rf wallet.dat
 mkdir log
 
 cp ${workspace}/node/config.json config.json
 cp ${workspace}/node/node p2pnode
+cp ${workspace}/node/wallet.dat wallet.dat
 
 # start nodes
 for idx in $(seq 1 ${num})

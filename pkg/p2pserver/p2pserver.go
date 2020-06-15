@@ -40,8 +40,7 @@ type P2PServer struct {
 
 //NewServer return a new p2pserver according to the pubkey
 func NewServer(acct *account.Account) (*P2PServer, error) {
-	logger := log.Log
-	protocol := protocols.NewMsgHandler(acct, ledger.DefLedger, logger)
+	protocol := protocols.NewMsgHandler(acct, ledger.DefLedger)
 	n, err := netserver.NewNetServer(protocol, config.DefConfig.P2PNode)
 	if err != nil {
 		return nil, err

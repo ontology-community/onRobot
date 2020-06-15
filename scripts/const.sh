@@ -19,10 +19,11 @@ ipList="\
 172.168.3.165"
 
 # set test case var
-num=2
+num=10
 
 # set worksapce which contain target/node
-workspace=/home/ubuntu/ontology/node/dht
+#workspace=/home/ubuntu/ontology/node/dht
+workspace=/Users/dylen/workspace/gohome/src/github.com/ontology-community/onRobot/target
 walletpwd=123456
 
 # set http and p2p port config

@@ -20,6 +20,7 @@ package connect_controller
 import (
 	"net"
 
+	"github.com/ontio/ontology/common/log"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 )
 
@@ -37,7 +38,7 @@ type Conn struct {
 // Close overwrite net.Conn
 // warning: this method will try to lock the controller, be carefull to avoid deadlock
 func (self *Conn) Close() error {
-	self.controller.logger.Infof("closing connection: peer %s, address: %s", self.kid.ToHexString(), self.addr)
+	log.Infof("closing connection: peer %s, address: %s", self.kid.ToHexString(), self.addr)
 
 	self.controller.removePeer(self)
 

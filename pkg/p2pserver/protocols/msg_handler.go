@@ -65,14 +65,14 @@ type MsgHandler struct {
 	acct                     *account.Account // nil if conenesus is not enabled
 }
 
-func NewMsgHandler(acct *account.Account, ld *ledger.Ledger, logger msgCommon.Logger) *MsgHandler {
+func NewMsgHandler(acct *account.Account, ld *ledger.Ledger) *MsgHandler {
 	gov := utils.NewGovNodeResolver(ld)
 	seedsList := config.DefConfig.Genesis.SeedList
 	seeds, invalid := utils.NewHostsResolver(seedsList)
 	if invalid != nil {
 		panic(fmt.Errorf("invalid seed list； %v", invalid))
 	}
-	subNet := subnet.NewSubNet(acct, seeds, gov, logger)
+	subNet := subnet.NewSubNet(acct, seeds, gov)
 	return &MsgHandler{ledger: ld, seeds: seeds, subnet: subNet, acct: acct}
 }
 

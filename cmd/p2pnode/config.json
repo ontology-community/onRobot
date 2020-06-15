@@ -4,14 +4,11 @@
   "Net":{
     "ReservedPeersOnly":false,
     "ReservedCfg":{
-      "reserved":[
-        "1.2.3.4",
-        "1.2.3.5"
-      ],
+      "reserved":[],
       "mask":[]
     },
-    "NetworkMagic":300,
-    "NetworkId":300,
+    "NetworkMagic":299,
+    "NetworkId":299,
     "NetworkName":"",
     "IsTLS":false,
     "MaxHdrSyncReqs":1024,
@@ -20,11 +17,16 @@
     "MaxConnInBoundForSingleIP":1024
   },
   "SeedList": [
-    "172.168.3.151:40001",
-    "172.168.3.151:40002",
-    "172.168.3.151:40003",
-    "172.168.3.151:40004",
-    "172.168.3.151:40005",
-    "172.168.3.151:40006"
-  ]
+    "127.0.0.1:40001",
+    "127.0.0.1:40002",
+    "127.0.0.1:40003",
+    "127.0.0.1:40004"
+  ],
+  "Mysql": {
+    "Ip": "172.168.3.219",
+    "Port": 3306,
+    "User": "root",
+    "Pwd": "123456",
+    "Db": "txstat"
+  }
 }

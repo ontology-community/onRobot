@@ -49,7 +49,7 @@ type WithoutBlockSyncMsgHandler struct {
 	subnet                   *subnet.SubNet
 }
 
-func NewWithoutBlockSyncMsgHandler(acc *account.Account, logger common.Logger) *WithoutBlockSyncMsgHandler {
+func NewWithoutBlockSyncMsgHandler(acc *account.Account) *WithoutBlockSyncMsgHandler {
 	m := &WithoutBlockSyncMsgHandler{}
 
 	seedsList := config.DefConfig.Genesis.SeedList
@@ -57,10 +57,10 @@ func NewWithoutBlockSyncMsgHandler(acc *account.Account, logger common.Logger) *
 	if invalid != nil {
 		panic(fmt.Errorf("invalid seed list； %v", invalid))
 	}
-	gov := utils.NewGovNodeMockResolver(seedsList)
+	gov := utils.NewGovNodeMockResolver()
 
 	m.seeds = seeds
-	m.subnet = subnet.NewSubNet(acc, seeds, gov, logger)
+	m.subnet = subnet.NewSubNet(acc, seeds, gov)
 
 	return m
 }

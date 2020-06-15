@@ -16,6 +16,7 @@ build-node:
 	rm -rf target/node
 	mkdir target/node
 	cp cmd/p2pnode/config.json target/node/config.json
+	cp cmd/p2pnode/wallet.dat target/node/wallet.dat
 	$(GOBUILD) -o target/node/node cmd/p2pnode/main.go
 
 build-linux-node:

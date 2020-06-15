@@ -21,6 +21,7 @@ package conf
 import (
 	"fmt"
 	cmf "github.com/ontio/ontology/common/config"
+	"github.com/ontology-community/onRobot/pkg/dao"
 	"github.com/ontology-community/onRobot/pkg/files"
 )
 
@@ -34,6 +35,7 @@ type DHTConfig struct {
 	GasLimit uint64
 	Net      *cmf.P2PNodeConfig
 	SeedList []string
+	Mysql    *dao.Config
 }
 
 func NewDHTConfig() *DHTConfig {

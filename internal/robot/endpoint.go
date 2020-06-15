@@ -27,7 +27,6 @@ import (
 )
 
 func init() {
-	initLogger()
 	rand.Seed(time.Now().UnixNano())
 	params.InitializeTestParams()
 

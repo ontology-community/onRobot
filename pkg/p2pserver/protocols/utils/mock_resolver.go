@@ -21,7 +21,7 @@ package utils
 import (
 	"github.com/ontio/ontology-crypto/keypair"
 	"github.com/ontio/ontology/consensus/vbft/config"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/storage"
+	storage "github.com/ontology-community/onRobot/pkg/dao"
 	"sync"
 	"time"
 )
@@ -41,7 +41,7 @@ func NewGovNodeMockResolver() *GovNodeMockResolver {
 		mu:      new(sync.RWMutex),
 	}
 
-	resolver.refresh()
+	go resolver.refresh()
 
 	return resolver
 }
@@ -52,8 +52,10 @@ func (self *GovNodeMockResolver) refresh() {
 		select {
 		case <-tr.C:
 			self.cached()
-			// todo validate
-			tr.Reset(GovNodeRefreshDuration * time.Second)
+			// channel length should be 0 before reset
+			if len(tr.C) == 0 {
+				tr.Reset(GovNodeRefreshDuration * time.Second)
+			}
 		default:
 		}
 	}
@@ -70,11 +72,10 @@ func (self *GovNodeMockResolver) cached() {
 }
 
 func (self *GovNodeMockResolver) IsGovNode(key keypair.PublicKey) bool {
-	pubKey := vconfig.PubkeyID(key)
-
 	self.mu.RLock()
 	defer self.mu.RUnlock()
 
+	pubKey := vconfig.PubkeyID(key)
 	_, ok := self.govNode[pubKey]
 	return ok
 }

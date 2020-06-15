@@ -26,6 +26,8 @@ import (
 	"time"
 
 	"github.com/ontio/ontology/account"
+	"github.com/ontio/ontology/common/log"
+
 	vconfig "github.com/ontio/ontology/consensus/vbft/config"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
@@ -52,17 +54,14 @@ type SubNet struct {
 
 	connected map[string]*peer.PeerInfo // connected seed or gov node, listen address --> PeerInfo
 	members   map[string]*MemberStatus  // gov node info, listen address --> pubkey hex string
-	logger    common.Logger
 }
 
-func NewSubNet(acc *account.Account, seeds *utils.HostsResolver,
-	gov utils.GovNodeResolver, logger common.Logger) *SubNet {
+func NewSubNet(acc *account.Account, seeds *utils.HostsResolver, gov utils.GovNodeResolver) *SubNet {
 	return &SubNet{
 		acct:     acc,
 		seeds:    seeds,
 		gov:      gov,
 		unparker: utils.NewParker(),
-		logger:   logger,
 
 		connected: make(map[string]*peer.PeerInfo),
 		members:   make(map[string]*MemberStatus),
@@ -173,7 +172,7 @@ func (self *SubNet) OnMembersRequest(ctx *p2p.Context, msg *types.SubnetMembersR
 
 	peerAddr := sender.Info.RemoteListenAddress()
 	if !self.checkAuthority(peerAddr, msg) {
-		self.logger.Info("[subnet] check authority for members request failed, peer: %s", peerAddr)
+		log.Info("[subnet] check authority for members request failed, peer: %s", peerAddr)
 		return
 	}
 
@@ -194,18 +193,18 @@ func (self *SubNet) OnMembersRequest(ctx *p2p.Context, msg *types.SubnetMembersR
 	self.lock.Unlock()
 
 	reply := &types.SubnetMembers{Members: members}
-	self.logger.Debugf("[subnet], send members to peer %s, value: %s", sender.Info.Id.ToHexString(), reply)
+	log.Debugf("[subnet], send members to peer %s, value: %s", sender.Info.Id.ToHexString(), reply)
 	ctx.Network().SendTo(sender.GetID(), reply)
 }
 
 func (self *SubNet) OnMembersResponse(ctx *p2p.Context, msg *types.SubnetMembers) {
 	self.lock.Lock()
 	defer self.lock.Unlock()
-	self.logger.Debugf("[subnet], receive members: %s ", msg.String())
+	log.Debugf("[subnet], receive members: %s ", msg.String())
 
 	listen := ctx.Sender().Info.RemoteListenAddress()
 	if self.connected[listen] == nil {
-		self.logger.Info("[subnet] receive members response from unkown node: %s", listen)
+		log.Info("[subnet] receive members response from unkown node: %s", listen)
 		return
 	}
 
@@ -310,7 +309,7 @@ func (self *SubNet) maintainLoop(net p2p.P2P) {
 		self.lock.Unlock()
 
 		for _, addr := range self.getUnconnectedGovNode() {
-			self.logger.Infof("[subnet] try connect gov node: %s", addr)
+			log.Infof("[subnet] try connect gov node: %s", addr)
 			go net.Connect(addr)
 		}
 
@@ -320,7 +319,7 @@ func (self *SubNet) maintainLoop(net p2p.P2P) {
 		if seedOrGov {
 			members := self.GetMembersInfo()
 			buf, _ := json.Marshal(members)
-			self.logger.Infof("[subnet] current members: %s", string(buf))
+			log.Infof("[subnet] current members: %s", string(buf))
 		}
 
 		parker.ParkTimeout(RefreshDuration)
