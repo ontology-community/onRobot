@@ -19,6 +19,7 @@
 package robot
 
 import (
+	"github.com/ontology-community/onRobot/pkg/p2pserver/mock"
 	"math"
 	"math/big"
 	"net"
@@ -856,7 +857,12 @@ func Subnet() bool {
 		return false
 	}
 
-	// 总共11个节点，最开始起10个节点，然后动态增加/删除1个节点
+	// set peer id difficulty
+	p2pcm.Difficulty = 1
+
+	// 总共10个节点，最开始起10个节点，然后动态增加/删除1个节点
+	// todo 动态增加/删除共识节点
+	// todo dns解析
 	S := len(params.Seed)
 	G := len(params.Gov)
 	N := len(params.Normal)
@@ -864,32 +870,33 @@ func Subnet() bool {
 
 	nodeList := make([]*wrapNode, 0)
 	govPubKeys, govAccounts := generateMultiPubkeys(G)
+	nw := mock.NewNetwork()
 
 	for i := 0; i < S; i++ {
-		wn := generateSeedNode(govPubKeys, params.Seed, params.Seed[i])
+		wn := GenerateSeedNode(govPubKeys, params.Seed, params.Seed[i], nw)
 		nodeList = append(nodeList, wn)
 	}
 	for i := 0; i < G; i++ {
-		wn := generateGovNode(govPubKeys, params.Seed, params.Gov[i], govAccounts[i])
+		wn := GenerateGovNode(govPubKeys, params.Seed, params.Gov[i], govAccounts[i], nw)
 		nodeList = append(nodeList, wn)
 	}
 	for i := 0; i < N; i++ {
-		wn := generateSeedNode(govPubKeys, params.Seed, params.Normal[i])
+		wn := GenerateNormNode(govPubKeys, params.Seed, params.Normal[i], nw)
 		nodeList = append(nodeList, wn)
 	}
 
 	for i := 0; i < len(nodeList); i++ {
 		wn := nodeList[i]
-		if err := wn.generateNode(); err != nil {
-			log.Error(err)
-			return false
-		}
+		//if err := wn.generateNode(); err != nil {
+		//	log.Error(err)
+		//	return false
+		//}
 		go wn.node.Start()
 	}
 
 	dispatch(params.Dispatch)
 
-	log.Info("===============================[check seed node]=====================================")
+	log.Info("===============================[check nodes]=====================================")
 	for i := 0; i < T; i++ {
 		var local string
 		if i < S {
@@ -911,6 +918,7 @@ func Subnet() bool {
 			log.Infof("local %s, neighbor %s", local, nb.GetAddr())
 		}
 
+		log.Info("=============================================================")
 		//if len(memList) != G {
 		//	log.Errorf("local %s, length of subnet member %d != G",  local, len(memList))
 		//	return false

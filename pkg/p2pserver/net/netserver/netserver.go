@@ -21,17 +21,17 @@ package netserver
 import (
 	"errors"
 	"fmt"
-	"net"
-
 	"github.com/ontio/ontology/common/config"
 	"github.com/ontio/ontology/common/log"
-
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/connect_controller"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
-	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/mock"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
 	st "github.com/ontology-community/onRobot/pkg/p2pserver/stat"
+	"net"
+	"strconv"
 )
 
 // todo
@@ -118,6 +118,25 @@ func NewNetServerWithTxStat(protocol p2p.Protocol, conf *config.P2PNodeConfig) (
 	s.Np = NewNbrPeersWithTxStat(s.stat)
 
 	return s, nil
+}
+
+func NewNetServerWithSubset(listenAddr string, proto p2p.Protocol, nw mock.Network) *NetServer {
+	const maxConn = 100
+
+	kid := common.RandPeerKeyId()
+	info := peer.NewPeerInfo(kid.Id, common.PROTOCOL_VERSION, common.SERVICE_NODE, true,
+		0, 0, 0, softVersion, "")
+
+	listener := nw.NewListenerWithAddr(kid.Id, listenAddr)
+	host, port, _ := net.SplitHostPort(listenAddr)
+	dialer := nw.NewDialerWithHost(kid.Id, host)
+	info.Addr = listenAddr
+	iport, _ := strconv.Atoi(port)
+	info.Port = uint16(iport)
+	opt := connect_controller.NewConnCtrlOption().MaxInBoundPerIp(maxConn).
+		MaxInBound(maxConn).MaxOutBound(maxConn).WithDialer(dialer).ReservedOnly(nil)
+
+	return NewCustomNetServer(kid, info, proto, listener, opt)
 }
 
 func NewCustomNetServer(id *common.PeerKeyId, info *peer.PeerInfo, proto p2p.Protocol,

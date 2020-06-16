@@ -19,7 +19,6 @@
 package subnet
 
 import (
-	"encoding/json"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -28,10 +27,10 @@ import (
 	"github.com/ontio/ontology/account"
 	"github.com/ontio/ontology/common/log"
 
-	vconfig "github.com/ontio/ontology/consensus/vbft/config"
+	"github.com/ontio/ontology/consensus/vbft/config"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
-	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/utils"
 )
@@ -309,7 +308,8 @@ func (self *SubNet) maintainLoop(net p2p.P2P) {
 		self.lock.Unlock()
 
 		for _, addr := range self.getUnconnectedGovNode() {
-			log.Infof("[subnet] try connect gov node: %s", addr)
+			// todo: need log
+			// log.Infof("[subnet] try connect gov node: %s", addr)
 			go net.Connect(addr)
 		}
 
@@ -317,9 +317,10 @@ func (self *SubNet) maintainLoop(net p2p.P2P) {
 		self.sendMembersRequestToRandNodes(net)
 
 		if seedOrGov {
-			members := self.GetMembersInfo()
-			buf, _ := json.Marshal(members)
-			log.Infof("[subnet] current members: %s", string(buf))
+			// todo: do not comment after test
+			// members := self.GetMembersInfo()
+			// buf, _ := json.Marshal(members)
+			// log.Infof("[subnet] current members: %s", string(buf))
 		}
 
 		parker.ParkTimeout(RefreshDuration)

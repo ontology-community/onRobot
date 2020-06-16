@@ -231,6 +231,10 @@ func (c *httpClient) getHashListResult(ip string, port uint16, method string, ha
 	return
 }
 
+func assembleIpAndPort(ip string, port uint16) string {
+	return fmt.Sprintf("%s:%d", ip, port)
+}
+
 func parseResponse(body io.Reader, res interface{}) error {
 	data, err := ioutil.ReadAll(body)
 	if err != nil {

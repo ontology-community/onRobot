@@ -19,29 +19,29 @@
 package robot
 
 import (
-	"fmt"
 	"net"
 	"strconv"
 
 	"github.com/ontio/ontology-crypto/keypair"
 	"github.com/ontio/ontology/account"
 	"github.com/ontology-community/onRobot/internal/robot/conf"
+
 	p2pcm "github.com/ontology-community/onRobot/pkg/p2pserver/common"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/mock"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/net/netserver"
-	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/utils"
 )
 
-func GenerateNetServerWithSubnet(govPubKeys []keypair.PublicKey, acc *account.Account, seeds []string, host string) (*netserver.NetServer, error) {
-	if err := settleDefConfigPort(host); err != nil {
-		return nil, err
-	}
+func generateNetServerWithSubnet(govPubKeys []keypair.PublicKey, acc *account.Account,
+	seeds []string, host string, nw mock.Network) *netserver.NetServer {
+
 	resolver := utils.NewGovNodeMockResolver()
 	addMultiGovNodes(resolver, govPubKeys)
 	protocol := protocols.NewSubnetHandler(acc, seeds, resolver)
-	node, err := netserver.NewNetServer(protocol, conf.DefConfig.Net)
-	return node, err
+	node := netserver.NewNetServerWithSubset(host, protocol, nw)
+	return node
 }
 
 func generateMultiPubkeys(n int) ([]keypair.PublicKey, []*account.Account) {
@@ -72,47 +72,40 @@ type wrapNode struct {
 	gov      []keypair.PublicKey
 }
 
-func generateSeedNode(gov []keypair.PublicKey, seeds []string, host string) *wrapNode {
-	return &wrapNode{
+func GenerateSeedNode(gov []keypair.PublicKey, seeds []string, host string, nw mock.Network) *wrapNode {
+	wn := &wrapNode{
 		gov:      gov,
 		seeds:    seeds,
 		acc:      account.NewAccount(""),
 		host:     host,
 		nodeType: nodeTypeSeed,
 	}
+	wn.node = generateNetServerWithSubnet(wn.gov, wn.acc, wn.seeds, wn.host, nw)
+	return wn
 }
 
-func generateNormNode(gov []keypair.PublicKey, seeds []string, host string) *wrapNode {
-	return &wrapNode{
+func GenerateNormNode(gov []keypair.PublicKey, seeds []string, host string, nw mock.Network) *wrapNode {
+	wn := &wrapNode{
 		gov:      gov,
 		seeds:    seeds,
 		acc:      account.NewAccount(""),
 		host:     host,
 		nodeType: nodeTypeNorm,
 	}
+	wn.node = generateNetServerWithSubnet(wn.gov, wn.acc, wn.seeds, wn.host, nw)
+	return wn
 }
 
-func generateGovNode(gov []keypair.PublicKey, seeds []string, host string, acc *account.Account) *wrapNode {
-	return &wrapNode{
+func GenerateGovNode(gov []keypair.PublicKey, seeds []string, host string, acc *account.Account, nw mock.Network) *wrapNode {
+	wn := &wrapNode{
 		gov:      gov,
 		seeds:    seeds,
 		acc:      acc,
 		host:     host,
 		nodeType: nodeTypeGov,
 	}
-}
-
-func (wn *wrapNode) generateNode() error {
-	node, err := GenerateNetServerWithSubnet(wn.gov, wn.acc, wn.seeds, wn.host)
-	if err != nil {
-		return err
-	}
-	wn.node = node
-	return nil
-}
-
-func assembleIpAndPort(ip string, port uint16) string {
-	return fmt.Sprintf("%s:%d", ip, port)
+	wn.node = generateNetServerWithSubnet(wn.gov, wn.acc, wn.seeds, wn.host, nw)
+	return wn
 }
 
 func addMultiGovNodes(resolver utils.GovNodeResolver, kps []keypair.PublicKey) {
@@ -130,7 +123,7 @@ func getSubnetMemberInfo(protocol p2p.Protocol) []p2pcm.SubnetMemberInfo {
 	return handler.GetSubnetMembersInfo()
 }
 
-func settleDefConfigPort(addr string) error {
+func subnetDefConfig(addr string) error {
 	_, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return err
@@ -139,6 +132,11 @@ func settleDefConfigPort(addr string) error {
 	if err != nil {
 		return err
 	}
+	conf.DefConfig.Net.ReservedPeersOnly = false
+	//conf.DefConfig.Net.ReservedCfg.ReservedPeers = nil
 	conf.DefConfig.Net.NodePort = uint16(iport)
+	conf.DefConfig.Net.HttpInfoPort = 0
+	conf.DefConfig.Net.MaxConnInBound = 100
+	conf.DefConfig.Net.MaxConnOutBound = 100
 	return nil
 }

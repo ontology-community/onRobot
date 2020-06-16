@@ -18,7 +18,9 @@
 
 package subnet
 
-import "net"
+import (
+	"net"
+)
 
 type SubNetReservedAddrFilter struct {
 	subnet *SubNet
@@ -36,6 +38,7 @@ func (self *SubNetReservedAddrFilter) Filtered(addr string) bool {
 	}
 
 	if self.subnet.isSeedIp(ip) || self.subnet.acct == nil || !self.subnet.gov.IsGovNode(self.subnet.acct.PublicKey) {
+		// fmt.Println("------------------------------", self.subnet.selfAddr)
 		return false
 	}
 
