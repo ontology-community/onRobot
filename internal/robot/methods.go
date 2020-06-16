@@ -27,8 +27,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ontio/ontology-crypto/keypair"
-	"github.com/ontio/ontology/account"
 	ontcm "github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/common/log"
 	"github.com/ontology-community/onRobot/internal/robot/conf"
@@ -37,7 +35,6 @@ import (
 	p2pcm "github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/handshake"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/net/netserver"
 	pr "github.com/ontology-community/onRobot/pkg/p2pserver/params"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols"
 	"github.com/ontology-community/onRobot/pkg/sdk"
@@ -865,32 +862,29 @@ func Subnet() bool {
 	N := len(params.Normal)
 	T := S + G + N
 
-	accList := make([]*account.Account, T)
-	govPubKeys := make([]keypair.PublicKey, 0)
-	for i := 0; i < T; i++ {
-		accList[i] = account.NewAccount("")
-		if i >= S && i < S+G {
-			govPubKeys = append(govPubKeys, accList[i].PublicKey)
-		}
+	nodeList := make([]*wrapNode, 0)
+	govPubKeys, govAccounts := generateMultiPubkeys(G)
+
+	for i := 0; i < S; i++ {
+		wn := generateSeedNode(govPubKeys, params.Seed, params.Seed[i])
+		nodeList = append(nodeList, wn)
+	}
+	for i := 0; i < G; i++ {
+		wn := generateGovNode(govPubKeys, params.Seed, params.Gov[i], govAccounts[i])
+		nodeList = append(nodeList, wn)
+	}
+	for i := 0; i < N; i++ {
+		wn := generateSeedNode(govPubKeys, params.Seed, params.Normal[i])
+		nodeList = append(nodeList, wn)
 	}
 
-	nodeList := make([]*netserver.NetServer, T)
-	for i := 0; i < T; i++ {
-		var host string
-		if i < S {
-			host = params.Seed[i]
-		} else if i >= S && i < S+G {
-			host = params.Gov[i-S]
-		} else {
-			host = params.Normal[i-S-G]
-		}
-		node, err := GenerateNetServerWithSubnet(govPubKeys, accList[i], params.Seed, host)
-		if err != nil {
+	for i := 0; i < len(nodeList); i++ {
+		wn := nodeList[i]
+		if err := wn.generateNode(); err != nil {
 			log.Error(err)
 			return false
 		}
-		nodeList[i] = node
-		go node.Start()
+		go wn.node.Start()
 	}
 
 	dispatch(params.Dispatch)
@@ -906,13 +900,13 @@ func Subnet() bool {
 			local = params.Normal[i-S-G]
 		}
 
-		node := nodeList[i]
-		memList := getSubnetMemberInfo(node.Protocol())
+		wn := nodeList[i]
+		memList := getSubnetMemberInfo(wn.node.Protocol())
 
 		for _, info := range memList {
 			log.Infof("local %s, listenAddr:%s, connected: %v", local, info.ListenAddr, info.Connected)
 		}
-		nbs := node.GetNeighbors()
+		nbs := wn.node.GetNeighbors()
 		for _, nb := range nbs {
 			log.Infof("local %s, neighbor %s", local, nb.GetAddr())
 		}
