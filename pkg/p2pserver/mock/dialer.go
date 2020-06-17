@@ -43,9 +43,9 @@ func (d *dialer) Dial(nodeAddr string) (net.Conn, error) {
 		return nil, errors.New("can not be reached")
 	}
 
-	if _, allow := d.network.canEstablish[combineKey(d.id, l.id)]; !allow {
-		return nil, errors.New("can not be reached")
-	}
+	//if _, allow := d.network.canEstablish[combineKey(d.id, l.id)]; !allow {
+	//	return nil, errors.New("can not be reached")
+	//}
 
 	c, s := net.Pipe()
 
