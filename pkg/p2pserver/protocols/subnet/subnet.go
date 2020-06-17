@@ -36,9 +36,11 @@ import (
 )
 
 const MaxMemberRequests = 3
-const MaxInactiveTime = 10 * time.Minute
 
-var RefreshDuration = 1 * time.Minute
+var (
+	MaxInactiveTime = 10 * time.Minute
+	RefreshDuration = 1 * time.Minute
+)
 
 type SubNet struct {
 	acct     *account.Account // nil if conenesus is not enabled

@@ -374,7 +374,7 @@ func (self *ConnectController) removePeer(conn *Conn) {
 
 	p := self.peers[conn.kid]
 	if p == nil || p.peer == nil {
-		log.Fatalf("connection %s not in controller", conn.kid.ToHexString())
+		log.Warnf("connection %s not in controller", conn.kid.ToHexString())
 	} else if p.connectId == conn.connectId { // connection not replaced
 		delete(self.peers, conn.kid)
 	}
