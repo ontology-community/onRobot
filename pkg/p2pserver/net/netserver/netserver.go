@@ -39,7 +39,7 @@ import (
 const softVersion = "2.0.0"
 
 //NewNetServer return the net object in p2p
-func NewNetServer(protocol p2p.Protocol, conf *config.P2PNodeConfig) (*NetServer, error) {
+func NewNetServer(protocol p2p.Protocol, conf *config.P2PNodeConfig, reserveAddrFilter p2p.AddressFilter) (*NetServer, error) {
 	nodePort := conf.NodePort
 	if nodePort == 0 {
 		nodePort = config.DEFAULT_NODE_PORT
@@ -49,7 +49,14 @@ func NewNetServer(protocol p2p.Protocol, conf *config.P2PNodeConfig) (*NetServer
 	info := peer.NewPeerInfo(keyId.Id, common.PROTOCOL_VERSION, common.SERVICE_NODE, true,
 		conf.HttpInfoPort, nodePort, 0, softVersion, "")
 
-	option, err := connect_controller.ConnCtrlOptionFromConfig(conf)
+	var rsv []string
+	if conf.ReservedPeersOnly && conf.ReservedCfg != nil {
+		rsv = conf.ReservedCfg.ReservedPeers
+	}
+	staticFilter := connect_controller.NewStaticReserveFilter(rsv)
+	reservedPeers := p2p.CombineAddrFilter(staticFilter, reserveAddrFilter)
+
+	option, err := connect_controller.ConnCtrlOptionFromConfig(conf, reservedPeers)
 	if err != nil {
 		return nil, err
 	}

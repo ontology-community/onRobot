@@ -26,16 +26,18 @@ import (
 	"unsafe"
 )
 
-// host resovler with cache
+const HostsResolverCacheTime = time.Minute * 10
+
+// host resolver with cache
 type HostsResolver struct {
 	hosts [][2]string
 
-	lock  sync.Mutex     // avoid concurrent cache reflesh
+	lock  sync.Mutex     // avoid concurrent cache refresh
 	cache unsafe.Pointer // atomic pointer to HostsCache, avoid read&write data race
 }
 
 type HostsCache struct {
-	refleshTime time.Time
+	refreshTime time.Time
 	addrs       []string
 }
 
@@ -57,7 +59,7 @@ func NewHostsResolver(hosts []string) (*HostsResolver, []string) {
 func (self *HostsResolver) GetHostAddrs() []string {
 	// fast path test
 	cached := (*HostsCache)(atomic.LoadPointer(&self.cache))
-	if cached != nil && cached.refleshTime.Add(time.Minute*10).After(time.Now()) && len(cached.addrs) != 0 {
+	if cached != nil && cached.refreshTime.Add(HostsResolverCacheTime).After(time.Now()) && len(cached.addrs) != 0 {
 		return cached.addrs
 	}
 
@@ -65,7 +67,7 @@ func (self *HostsResolver) GetHostAddrs() []string {
 	defer self.lock.Unlock()
 
 	cached = (*HostsCache)(self.cache)
-	if cached != nil && cached.refleshTime.Add(time.Minute*10).After(time.Now()) && len(cached.addrs) != 0 {
+	if cached != nil && cached.refreshTime.Add(HostsResolverCacheTime).After(time.Now()) && len(cached.addrs) != 0 {
 		return cached.addrs
 	}
 
@@ -77,10 +79,12 @@ func (self *HostsResolver) GetHostAddrs() []string {
 			continue
 		}
 
-		cache = append(cache, net.JoinHostPort(ns[0], port))
+		for _, hs := range ns {
+			cache = append(cache, net.JoinHostPort(hs, port))
+		}
 	}
 
-	atomic.StorePointer(&self.cache, unsafe.Pointer(&HostsCache{refleshTime: time.Now(), addrs: cache}))
+	atomic.StorePointer(&self.cache, unsafe.Pointer(&HostsCache{refreshTime: time.Now(), addrs: cache}))
 
 	return cache
 }

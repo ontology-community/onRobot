@@ -48,7 +48,6 @@ type connectedPeer struct {
 
 type ConnectController struct {
 	ConnCtrlOption
-	reserveAddrFilter p2p.AddressFilter //todo combine with ConnCtrlOption
 
 	selfId   *common.PeerKeyId
 	peerInfo *peer.PeerInfo
@@ -64,10 +63,9 @@ type ConnectController struct {
 }
 
 func NewConnectController(peerInfo *peer.PeerInfo, keyid *common.PeerKeyId,
-	option ConnCtrlOption, reserveAddrFilter p2p.AddressFilter) *ConnectController {
+	option ConnCtrlOption) *ConnectController {
 	control := &ConnectController{
 		ConnCtrlOption:       option,
-		reserveAddrFilter:    reserveAddrFilter,
 		selfId:               keyid,
 		peerInfo:             peerInfo,
 		inoutbounds:          [2]*strset.Set{strset.New(), strset.New()},
@@ -75,11 +73,6 @@ func NewConnectController(peerInfo *peer.PeerInfo, keyid *common.PeerKeyId,
 		connecting:           strset.New(),
 		peers:                make(map[common.PeerId]*connectedPeer),
 	}
-
-	// put domain to the end
-	sort.Slice(control.ReservedPeers, func(i, j int) bool {
-		return net.ParseIP(control.ReservedPeers[i]) != nil
-	})
 
 	return control
 }
@@ -159,42 +152,12 @@ func (self *ConnectController) removeConnecting(addr string) {
 	self.connecting.Remove(addr)
 }
 
-func (self *ConnectController) reserveEnabled() bool {
-	return len(self.ReservedPeers) > 0
-}
-
-// remoteAddr format 192.168.1.1:61234
-func (self *ConnectController) inReserveList(remoteIPPort string) bool {
-	// 192.168.1.1 in reserve list, 192.168.1.111:61234 and 192.168.1.11:61234 can connect in if we are using prefix matching
-	// so get this IP to do fully match
-	remoteAddr, _, err := net.SplitHostPort(remoteIPPort)
-	if err != nil {
-		return false
-	}
-	// we don't load domain in start because we consider domain's A/AAAA record may change sometimes
-	for _, curIPOrName := range self.ReservedPeers {
-		curIPs, err := net.LookupHost(curIPOrName)
-		if err != nil {
-			continue
-		}
-		for _, digIP := range curIPs {
-			if digIP == remoteAddr {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
 func (self *ConnectController) checkReservedPeers(remoteAddr string) error {
-	if self.reserveAddrFilter == nil {
+	if self.ReservedPeers.Contains(remoteAddr) {
 		return nil
 	}
-	if !self.reserveAddrFilter.Filtered(remoteAddr) && (!self.reserveEnabled() || self.inReserveList(remoteAddr)) {
-		return nil
-	}
-	return fmt.Errorf("local %s, the remote addr: %s not in reserved list", self.peerInfo.Addr, remoteAddr)
+
+	return fmt.Errorf("the remote addr: %s not in reserved list", remoteAddr)
 }
 
 func (self *ConnectController) getInboundCountWithIp(ip string) uint {

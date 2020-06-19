@@ -57,7 +57,8 @@ type SubNet struct {
 	members   map[string]*MemberStatus  // gov node info, listen address --> pubkey hex string
 }
 
-func NewSubNet(acc *account.Account, seeds *utils.HostsResolver, gov utils.GovNodeResolver) *SubNet {
+func NewSubNet(acc *account.Account, seeds *utils.HostsResolver, 
+	gov utils.GovNodeResolver) *SubNet {
 	return &SubNet{
 		acct:     acc,
 		seeds:    seeds,
@@ -152,11 +153,16 @@ func (self *SubNet) OnHostAddrDetected(listenAddr string) {
 	seed := self.isSeedAddr(listenAddr)
 	self.lock.Lock()
 	defer self.lock.Unlock()
-	self.selfAddr = listenAddr
-	if seed {
-		atomic.StoreUint32(&self.seedNode, 1)
-	} else {
-		atomic.StoreUint32(&self.seedNode, 0)
+	// host address detection may be fooled by remote peer
+	// so add this check to make sure seed node will detected itself finally.
+	// and will not be replaced by no seed address.
+	if seed || self.selfAddr == "" {
+		self.selfAddr = listenAddr
+		if seed {
+			atomic.StoreUint32(&self.seedNode, 1)
+		} else {
+			atomic.StoreUint32(&self.seedNode, 0)
+		}
 	}
 }
 
@@ -165,11 +171,14 @@ func (self *SubNet) checkAuthority(listenAddr string, msg *types.SubnetMembersRe
 		return self.isSeedAddr(listenAddr)
 	}
 
-	return self.gov.IsGovNode(msg.PubKey)
+	return self.gov.IsGovNodePubKey(msg.PubKey)
 }
 
 func (self *SubNet) OnMembersRequest(ctx *p2p.Context, msg *types.SubnetMembersRequest) {
 	sender := ctx.Sender()
+	if msg.From != sender.GetID() || msg.To != ctx.Network().GetID() {
+		return
+	}
 
 	peerAddr := sender.Info.RemoteListenAddress()
 	if !self.checkAuthority(peerAddr, msg) {
@@ -185,7 +194,7 @@ func (self *SubNet) OnMembersRequest(ctx *p2p.Context, msg *types.SubnetMembersR
 	}
 
 	//update self.members
-	if !msg.FromSeed() && self.gov.IsGovNode(msg.PubKey) && self.members[peerAddr] == nil {
+	if !msg.FromSeed() && self.gov.IsGovNodePubKey(msg.PubKey) && self.members[peerAddr] == nil {
 		self.members[peerAddr] = &MemberStatus{
 			PubKey: vconfig.PubkeyID(msg.PubKey),
 			Alive:  time.Now(),
@@ -218,7 +227,9 @@ func (self *SubNet) OnMembersResponse(ctx *p2p.Context, msg *types.SubnetMembers
 		}
 	}
 
-	self.unparker.Unpark()
+	if updated {
+		self.unparker.Unpark()
+	}
 }
 
 func (self *SubNet) getUnconnectedGovNode() []string {
@@ -235,13 +246,13 @@ func (self *SubNet) getUnconnectedGovNode() []string {
 	return addrs
 }
 
-func (self *SubNet) newMembersRequest() *types.SubnetMembersRequest {
+func (self *SubNet) newMembersRequest(from, to common.PeerId) *types.SubnetMembersRequest {
 	var request *types.SubnetMembersRequest
 	if self.IsSeedNode() {
 		request = types.NewMembersRequestFromSeed()
-	} else if self.acct != nil && self.gov.IsGovNode(self.acct.PublicKey) {
+	} else if self.acct != nil && self.gov.IsGovNodePubKey(self.acct.PublicKey) {
 		var err error
-		request, err = types.NewMembersRequest(self.acct)
+		request, err = types.NewMembersRequest(from, to, self.acct)
 		if err != nil {
 			return nil
 		}
@@ -251,11 +262,6 @@ func (self *SubNet) newMembersRequest() *types.SubnetMembersRequest {
 }
 
 func (self *SubNet) sendMembersRequestToRandNodes(net p2p.P2P) {
-	request := self.newMembersRequest()
-	if request == nil {
-		return
-	}
-
 	count := 0
 	peerIds := make([]common.PeerId, 0, MaxMemberRequests)
 	self.lock.RLock()
@@ -267,15 +273,19 @@ func (self *SubNet) sendMembersRequestToRandNodes(net p2p.P2P) {
 			break
 		}
 	}
-
 	self.lock.RUnlock()
+
 	for _, peerId := range peerIds {
+		request := self.newMembersRequest(net.GetID(), peerId)
+		if request == nil {
+			return
+		}
 		net.SendTo(peerId, request)
 	}
 }
 
 func (self *SubNet) sendMembersRequest(net p2p.P2P, peer common.PeerId) {
-	request := self.newMembersRequest()
+	request := self.newMembersRequest(net.GetID(), peer)
 	if request == nil {
 		return
 	}
@@ -283,7 +293,7 @@ func (self *SubNet) sendMembersRequest(net p2p.P2P, peer common.PeerId) {
 	net.SendTo(peer, request)
 }
 
-func (self *SubNet) cleanStaleGovNode() {
+func (self *SubNet) cleanInactiveGovNode() {
 	now := time.Now()
 	self.lock.Lock()
 	defer self.lock.Unlock()
@@ -295,31 +305,48 @@ func (self *SubNet) cleanStaleGovNode() {
 	}
 }
 
+func (self *SubNet) cleanRetiredGovNode(net p2p.P2P) {
+	self.lock.Lock()
+	defer self.lock.Unlock()
+	for addr, status := range self.members {
+		if !self.gov.IsGovNode(status.PubKey) {
+			delete(self.members, addr)
+			if info := self.connected[addr]; info != nil {
+				if p := net.GetPeer(info.Id); p != nil {
+					p.Close()
+				}
+			}
+		}
+	}
+}
+
 func (self *SubNet) maintainLoop(net p2p.P2P) {
 	parker := self.unparker
 	for {
 		self.lock.Lock()
-		for _, peer := range net.GetNeighbors() {
-			listen := peer.Info.RemoteListenAddress()
+		for _, p := range net.GetNeighbors() {
+			listen := p.Info.RemoteListenAddress()
 			if self.members[listen] != nil && self.connected[listen] == nil {
-				self.connected[listen] = peer.Info
+				self.connected[listen] = p.Info
 				self.members[listen].Alive = time.Now()
 			}
 		}
-		seedOrGov := self.IsSeedNode() || (self.acct != nil && self.gov.IsGovNode(self.acct.PublicKey))
+		seedOrGov := self.IsSeedNode() || (self.acct != nil && self.gov.IsGovNodePubKey(self.acct.PublicKey))
+		selfAddr := self.selfAddr
 		self.lock.Unlock()
 
+		self.cleanRetiredGovNode(net)
 		for _, addr := range self.getUnconnectedGovNode() {
-			// todo: need log
-			// log.Infof("[subnet] try connect gov node: %s", addr)
-			go net.Connect(addr)
+			if addr != selfAddr {
+				log.Infof("[subnet] try connect gov node: %s", addr)
+				go net.Connect(addr)
+			}
 		}
 
-		self.cleanStaleGovNode()
-		self.sendMembersRequestToRandNodes(net)
+		self.cleanInactiveGovNode()
 
 		if seedOrGov {
-			// todo: do not comment after test
+			// self.sendMembersRequestToRandNodes(net)
 			// members := self.GetMembersInfo()
 			// buf, _ := json.Marshal(members)
 			// log.Infof("[subnet] current members: %s", string(buf))
@@ -332,9 +359,10 @@ func (self *SubNet) maintainLoop(net p2p.P2P) {
 	}
 }
 
-func (self *SubNet) GetReservedAddrFilter() p2p.AddressFilter {
+func (self *SubNet) GetReservedAddrFilter(staticFilterEnabled bool) p2p.AddressFilter {
 	return &SubNetReservedAddrFilter{
-		subnet: self,
+		subnet:              self,
+		staticFilterEnabled: staticFilterEnabled,
 	}
 }
 

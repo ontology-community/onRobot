@@ -63,9 +63,10 @@ type MsgHandler struct {
 	subnet                   *subnet.SubNet
 	ledger                   *ledger.Ledger
 	acct                     *account.Account // nil if conenesus is not enabled
+	staticReserveFilter      p2p.AddressFilter
 }
 
-func NewMsgHandler(acct *account.Account, ld *ledger.Ledger) *MsgHandler {
+func NewMsgHandler(acct *account.Account, staticReserveFilter p2p.AddressFilter, ld *ledger.Ledger) *MsgHandler {
 	gov := utils.NewGovNodeResolver(ld)
 	seedsList := config.DefConfig.Genesis.SeedList
 	seeds, invalid := utils.NewHostsResolver(seedsList)
@@ -73,11 +74,11 @@ func NewMsgHandler(acct *account.Account, ld *ledger.Ledger) *MsgHandler {
 		panic(fmt.Errorf("invalid seed list； %v", invalid))
 	}
 	subNet := subnet.NewSubNet(acct, seeds, gov)
-	return &MsgHandler{ledger: ld, seeds: seeds, subnet: subNet, acct: acct}
+	return &MsgHandler{ledger: ld, seeds: seeds, subnet: subNet, acct: acct, staticReserveFilter: staticReserveFilter}
 }
 
-func (self *MsgHandler) GetReservedAddrFilter() p2p.AddressFilter {
-	return self.subnet.GetReservedAddrFilter()
+func (self *MsgHandler) GetReservedAddrFilter(staticFilterEnabled bool) p2p.AddressFilter {
+	return self.subnet.GetReservedAddrFilter(staticFilterEnabled)
 }
 
 func (self *MsgHandler) GetMaskAddrFilter() p2p.AddressFilter {
@@ -90,7 +91,7 @@ func (self *MsgHandler) GetSubnetMembersInfo() []msgCommon.SubnetMemberInfo {
 
 func (self *MsgHandler) start(net p2p.P2P) {
 	self.blockSync = block_sync.NewBlockSyncMgr(net, self.ledger)
-	self.reconnect = reconnect.NewReconectService(net)
+	self.reconnect = reconnect.NewReconectService(net, self.staticReserveFilter)
 	maskFilter := self.subnet.GetMaskAddrFilter()
 	self.discovery = discovery.NewDiscovery(net, config.DefConfig.P2PNode.ReservedCfg.MaskPeers, maskFilter, 0)
 	self.bootstrap = bootstrap.NewBootstrapService(net, self.seeds)

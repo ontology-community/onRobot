@@ -19,7 +19,6 @@
 package types
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"time"
@@ -28,10 +27,13 @@ import (
 	"github.com/ontio/ontology/account"
 	comm "github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/core/signature"
+
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 )
 
 type SubnetMembersRequest struct {
+	From      common.PeerId
+	To        common.PeerId
 	Timestamp uint32
 	PubKey    keypair.PublicKey // only valid if Timestamp != 0
 	Sig       []byte
@@ -60,27 +62,34 @@ func (self *SubnetMembersRequest) FromSeed() bool {
 	return self.Timestamp == 0
 }
 
-func NewMembersRequest(acc *account.Account) (*SubnetMembersRequest, error) {
-	t := uint32(time.Now().Unix())
-	sig, err := signature.Sign(acc, sigdata(t))
+func NewMembersRequest(from, to common.PeerId, acc *account.Account) (*SubnetMembersRequest, error) {
+	request := &SubnetMembersRequest{
+		From:      from,
+		To:        to,
+		Timestamp: uint32(time.Now().Unix()),
+		PubKey:    acc.PublicKey,
+	}
+
+	sig, err := signature.Sign(acc, request.sigdata())
 	if err != nil {
 		return nil, err
 	}
-	return &SubnetMembersRequest{
-		Timestamp: t,
-		PubKey:    acc.PublicKey,
-		Sig:       sig,
-	}, nil
+	request.Sig = sig
+	return request, nil
 }
 
-func sigdata(t uint32) []byte {
-	var buf [4]byte
-	binary.LittleEndian.PutUint32(buf[:], t)
-	return buf[:]
+func (self *SubnetMembersRequest) sigdata() []byte {
+	sink := comm.NewZeroCopySink(nil)
+	self.From.Serialization(sink)
+	self.To.Serialization(sink)
+	sink.WriteUint32(self.Timestamp)
+	return sink.Bytes()
 }
 
 //Serialize message payload
 func (self *SubnetMembersRequest) Serialization(sink *comm.ZeroCopySink) {
+	self.From.Serialization(sink)
+	self.To.Serialization(sink)
 	sink.WriteUint32(self.Timestamp)
 	if self.Timestamp != 0 {
 		sink.WriteVarBytes(keypair.SerializePublicKey(self.PubKey))
@@ -94,6 +103,14 @@ func (self *SubnetMembersRequest) CmdType() string {
 
 //Deserialize message payload
 func (self *SubnetMembersRequest) Deserialization(source *comm.ZeroCopySource) (err error) {
+	err = self.From.Deserialization(source)
+	if err != nil {
+		return err
+	}
+	err = self.To.Deserialization(source)
+	if err != nil {
+		return err
+	}
 	self.Timestamp, err = source.ReadUint32()
 	if err != nil {
 		return err
@@ -117,7 +134,7 @@ func (self *SubnetMembersRequest) Deserialization(source *comm.ZeroCopySource) (
 		if uint32(time.Now().Add(-dur).Unix()) > self.Timestamp {
 			return errors.New("subnet members request message expired")
 		}
-		err = signature.Verify(self.PubKey, sigdata(self.Timestamp), self.Sig)
+		err = signature.Verify(self.PubKey, self.sigdata(), self.Sig)
 		if err != nil {
 			return err
 		}
@@ -144,6 +161,7 @@ func (self *SubnetMembers) Deserialization(source *comm.ZeroCopySource) error {
 	if err != nil {
 		return err
 	}
+	var members []MemberInfo
 	for i := uint32(0); i < num; i++ {
 		pubKey, err := source.ReadString()
 		if err != nil {
@@ -154,8 +172,9 @@ func (self *SubnetMembers) Deserialization(source *comm.ZeroCopySource) error {
 			return err
 		}
 
-		self.Members = append(self.Members, MemberInfo{PubKey: pubKey, Addr: addr})
+		members = append(members, MemberInfo{PubKey: pubKey, Addr: addr})
 	}
 
+	self.Members = members
 	return nil
 }
