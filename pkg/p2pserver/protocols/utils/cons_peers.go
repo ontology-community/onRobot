@@ -34,8 +34,6 @@ import (
 
 type GovNodeResolver interface {
 	IsGovNode(key keypair.PublicKey) bool
-	AddGovNode(key keypair.PublicKey)
-	DelGovNode(key keypair.PublicKey)
 }
 
 type GovNodeLedgerResolver struct {
@@ -92,10 +90,6 @@ func (self *GovNodeLedgerResolver) IsGovNode(key keypair.PublicKey) bool {
 
 	return govNode
 }
-
-// empty func
-func (self *GovNodeLedgerResolver) AddGovNode(key keypair.PublicKey) {}
-func (self *GovNodeLedgerResolver) DelGovNode(key keypair.PublicKey) {}
 
 func GetGovernanceView(backend *ledger.Ledger) (*governance.GovernanceView, error) {
 	value, err := backend.GetStorageItem(utils.GovernanceContractAddress, []byte(governance.GOVERNANCE_VIEW))

@@ -864,7 +864,7 @@ func Subnet() bool {
 	}
 	ms.StartAll()
 
-	dispatch(20)
+	dispatch(10)
 
 	if err := ms.CheckAll(); err != nil {
 		log.Error(err)
@@ -874,5 +874,50 @@ func Subnet() bool {
 	return true
 }
 
-// todo 动态增加/删除共识节点
+func SubnetAddMember() bool {
+	var params struct {
+		Subnet  *MockSubnetConfig
+		AddList []string
+	}
+
+	if err := files.LoadParams(conf.ParamsFileDir, "SubnetAddMember.json", &params); err != nil {
+		log.Error(err)
+		return false
+	}
+
+	// set peer id difficulty
+	p2pcm.Difficulty = 1
+
+	ms, err := NewMockSubnet(params.Subnet)
+	if err != nil {
+		log.Error(err)
+		return false
+	}
+	ms.StartAll()
+
+	dispatch(10)
+
+	for _, member := range params.AddList {
+		wn, err := ms.AddGovNode(member)
+		if err != nil {
+			log.Error(err)
+			return false
+		}
+		go wn.node.Start()
+	}
+
+	dispatch(10)
+
+	if err := ms.CheckAll(); err != nil {
+		log.Error(err)
+		return false
+	}
+
+	return true
+}
+
+func SubnetDelMember() bool {
+	return true
+}
+
 // todo dns解析

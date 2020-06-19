@@ -57,7 +57,7 @@ func NewTxCountHandler(acc *account.Account) *TxCountHandler {
 	if invalid != nil {
 		panic(fmt.Errorf("invalid seed list； %v", invalid))
 	}
-	gov := utils.NewGovNodeMockResolver()
+	gov := utils.NewGovNodeMockResolver(nil)
 
 	m.seeds = seeds
 	m.subnet = subnet.NewSubNet(acc, seeds, gov)

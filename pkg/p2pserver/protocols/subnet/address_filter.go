@@ -36,9 +36,10 @@ func (self *SubNetReservedAddrFilter) Filtered(addr string) bool {
 	if err != nil {
 		return true
 	}
-
-	if self.subnet.isSeedIp(ip) || self.subnet.acct == nil || !self.subnet.gov.IsGovNode(self.subnet.acct.PublicKey) {
-		// fmt.Println("------------------------------", self.subnet.selfAddr)
+	if self.subnet.isSeedIp(ip) {
+		return false
+	}
+	if self.subnet.acct == nil || !self.subnet.gov.IsGovNode(self.subnet.acct.PublicKey) {
 		return false
 	}
 

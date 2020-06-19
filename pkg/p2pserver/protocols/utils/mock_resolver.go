@@ -25,44 +25,58 @@ import (
 	vconfig "github.com/ontio/ontology/consensus/vbft/config"
 )
 
-type GovNodeMockResolver struct {
-	mu      *sync.RWMutex
-	govNode map[string]struct{}
+type MockGovNodeResolver struct {
+	db *MockLedger
 }
 
-// NewGovNodeMockResolver(gov []string)
-func NewGovNodeMockResolver() *GovNodeMockResolver {
-	govNode := make(map[string]struct{})
-	resolver := &GovNodeMockResolver{
-		govNode: govNode,
-		mu:      new(sync.RWMutex),
+func NewGovNodeMockResolver(db *MockLedger) *MockGovNodeResolver {
+	return &MockGovNodeResolver{
+		db: db,
 	}
-
-	return resolver
 }
 
-func (self *GovNodeMockResolver) IsGovNode(key keypair.PublicKey) bool {
+func (self *MockGovNodeResolver) IsGovNode(key keypair.PublicKey) bool {
+	if self.db == nil {
+		return false
+	}
+	return self.db.exist(key)
+}
+
+type MockLedger struct {
+	mu  *sync.RWMutex
+	gov map[string]struct{}
+}
+
+func NewMockLedger() *MockLedger {
+	return &MockLedger{
+		mu:  new(sync.RWMutex),
+		gov: make(map[string]struct{}),
+	}
+}
+
+func (self *MockLedger) AddGovNode(key keypair.PublicKey) {
+	self.mu.Lock()
+	pubKey := vconfig.PubkeyID(key)
+	if _, ok := self.gov[pubKey]; !ok {
+		self.gov[pubKey] = struct{}{}
+	}
+	self.mu.Unlock()
+}
+
+func (self *MockLedger) DelGovNode(key keypair.PublicKey) {
+	self.mu.Lock()
+	pubKey := vconfig.PubkeyID(key)
+	if _, ok := self.gov[pubKey]; ok {
+		delete(self.gov, pubKey)
+	}
+	self.mu.Unlock()
+}
+
+func (self *MockLedger) exist(key keypair.PublicKey) bool {
 	self.mu.RLock()
 	defer self.mu.RUnlock()
 
 	pubKey := vconfig.PubkeyID(key)
-	_, ok := self.govNode[pubKey]
+	_, ok := self.gov[pubKey]
 	return ok
-}
-
-func (self *GovNodeMockResolver) AddGovNode(key keypair.PublicKey) {
-	self.mu.Lock()
-	defer self.mu.Unlock()
-
-	pubKey := vconfig.PubkeyID(key)
-	self.govNode[pubKey] = struct{}{}
-}
-
-func (self *GovNodeMockResolver) DelGovNode(key keypair.PublicKey) {
-	self.mu.Lock()
-	defer self.mu.Unlock()
-
-	pubKey := vconfig.PubkeyID(key)
-
-	delete(self.govNode, pubKey)
 }

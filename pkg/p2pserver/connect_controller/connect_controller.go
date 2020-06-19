@@ -31,7 +31,7 @@ import (
 
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/handshake"
-	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
 )
 
@@ -191,6 +191,16 @@ func (self *ConnectController) checkReservedPeers(remoteAddr string) error {
 	if self.reserveAddrFilter == nil {
 		return nil
 	}
+	// todo delete after test
+	//host, _, _ := net.SplitHostPort(remoteAddr)
+	//list := strings.Split(host, ".")
+	//if len(list) >= 4 {
+	//	la, _ := strconv.Atoi(list[3])
+	//	if la >= 20 && la <= 30 {
+	//		fmt.Println("------gov node-----")
+	//	}
+	//}
+
 	if !self.reserveAddrFilter.Filtered(remoteAddr) && (!self.reserveEnabled() || self.inReserveList(remoteAddr)) {
 		return nil
 	}

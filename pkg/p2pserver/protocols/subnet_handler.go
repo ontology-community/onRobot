@@ -45,7 +45,8 @@ type SubnetHandler struct {
 	acct      *account.Account // nil if conenesus is not enabled
 }
 
-func NewSubnetHandler(acct *account.Account, seedList []string, gov utils.GovNodeResolver) *SubnetHandler {
+func NewSubnetHandler(acct *account.Account, seedList []string, ledger *utils.MockLedger) *SubnetHandler {
+	gov := utils.NewGovNodeMockResolver(ledger)
 	seeds, invalid := utils.NewHostsResolver(seedList)
 	if invalid != nil {
 		panic(fmt.Errorf("invalid seed list； %v", invalid))

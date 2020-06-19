@@ -49,4 +49,6 @@ func init() {
 	core.OntTool.RegMethod("txCount", TxCount)
 	core.OntTool.RegMethod("neighbor", Neighbor)
 	core.OntTool.RegMethod("subnet", Subnet)
+	core.OntTool.RegMethod("subnetAddMember", SubnetAddMember)
+	core.OntTool.RegMethod("subnetDelMember", SubnetDelMember)
 }

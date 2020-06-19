@@ -36,7 +36,8 @@ import (
 type nodeType uint
 
 const (
-	nodeTypeSeed nodeType = iota
+	nodeTypeUnknown nodeType = iota
+	nodeTypeSeed
 	nodeTypeGov
 	nodeTypeNorm
 )
@@ -71,9 +72,10 @@ func (c *MockSubnetConfig) checkDumpIps() error {
 type MockSubnet struct {
 	c *MockSubnetConfig
 
-	nodes []*wrapNode
-	gov   []keypair.PublicKey
-	nw    mock.Network
+	nodes  []*wrapNode
+	gov    []keypair.PublicKey
+	nw     mock.Network      // 共用同一个network
+	ledger *utils.MockLedger // 共用同一个resolver 模拟从合约获取共识节点列表
 }
 
 func NewMockSubnet(c *MockSubnetConfig) (*MockSubnet, error) {
@@ -90,6 +92,10 @@ func NewMockSubnet(c *MockSubnetConfig) (*MockSubnet, error) {
 
 	govPubKeys, govAccounts := generateMultiPubkeys(G)
 	ms.gov = govPubKeys
+	ms.ledger = utils.NewMockLedger()
+	for _, kp := range ms.gov {
+		ms.ledger.AddGovNode(kp)
+	}
 
 	for _, addr := range c.Seeds {
 		ms.generateNode(addr, nodeTypeSeed, nil)
@@ -108,6 +114,23 @@ func (ms *MockSubnet) StartAll() {
 	for _, node := range ms.nodes {
 		go node.node.Start()
 	}
+}
+
+func (ms *MockSubnet) AddGovNode(addr string) (*wrapNode, error) {
+	ms.c.Govs = append(ms.c.Govs, addr)
+	if err := ms.c.checkDumpIps(); err != nil {
+		return nil, err
+	}
+
+	pubkey, acc := generateSinglePubkey()
+	ms.gov = append(ms.gov, pubkey)
+	ms.ledger.AddGovNode(pubkey)
+	wn := ms.generateNode(addr, nodeTypeGov, acc)
+	return wn, nil
+}
+
+func (ms *MockSubnet) DelGovNode(addr string) {
+
 }
 
 func (ms *MockSubnet) CheckAll() error {
@@ -137,13 +160,8 @@ func (ms *MockSubnet) generateNode(host string, typ nodeType, acc *account.Accou
 		nodeType: typ,
 	}
 
-	// init resolver
-	resolver := utils.NewGovNodeMockResolver()
-	for _, kp := range ms.gov {
-		resolver.AddGovNode(kp)
-	}
 	// generate netserver
-	protocol := protocols.NewSubnetHandler(acc, ms.c.Seeds, resolver)
+	protocol := protocols.NewSubnetHandler(acc, ms.c.Seeds, ms.ledger)
 	wn.node = netserver.NewNetServerWithSubset(host, protocol, ms.nw)
 
 	ms.nodes = append(ms.nodes, wn)
@@ -197,30 +215,34 @@ func (wn *wrapNode) checkNeighbors() error {
 		if wn.isSelf(addr) {
 			return fmt.Errorf("node %s connected itself")
 		}
-		if err := wn.checkNeighborNode(addr); err != nil {
+		if nodeTyp, err := wn.checkNeighborNode(addr); err != nil {
 			return err
+		} else {
+			log.Infof("local %s, neighbor %s, nodetype %s", wn.host, addr, nodeTyp)
 		}
-		log.Infof("local %s, neighbor %s", wn.host, addr)
 	}
 
 	return wn.checkNeighborCount(len(nbs))
 }
 
-func (wn *wrapNode) checkNeighborNode(addr string) error {
+func (wn *wrapNode) checkNeighborNode(addr string) (typName string, err error) {
+	remoteTyp := wn.remoteNodeType(addr)
+
 	switch wn.nodeType {
 	case nodeTypeSeed:
 	case nodeTypeGov:
-		if wn.isNormNodes(addr) {
-			return fmt.Errorf("gov node %s should not be connected by normal node %s", wn.host, addr)
+		if remoteTyp == nodeTypeNorm {
+			err = fmt.Errorf("gov node %s should not be connected by normal node %s", wn.host, addr)
 		}
 	case nodeTypeNorm:
-		if wn.isGovNodes(addr) {
-			return fmt.Errorf("norm node %s should not be connected by gov node %s", wn.host, addr)
+		if remoteTyp == nodeTypeGov {
+			err = fmt.Errorf("norm node %s should not be connected by gov node %s", wn.host, addr)
 		}
 	default:
-		return fmt.Errorf("invalid node type")
+		err = fmt.Errorf("invalid node type")
 	}
-	return nil
+	typName = type2Name(remoteTyp)
+	return
 }
 
 func (wn *wrapNode) checkNeighborCount(L int) error {
@@ -252,37 +274,28 @@ func (wn *wrapNode) getSubnetMemberInfo() []p2pcm.SubnetMemberInfo {
 	return handler.GetSubnetMembersInfo()
 }
 
-func (wn *wrapNode) isGovNodes(addr string) bool {
-	host, _, _ := net.SplitHostPort(addr)
-	for _, listenAddr := range wn.c.Govs {
-		listenHost, _, _ := net.SplitHostPort(listenAddr)
-		if host == listenHost {
-			return true
-		}
+func (wn *wrapNode) remoteNodeType(addr string) nodeType {
+	if wn.isSeedNodes(addr) {
+		return nodeTypeSeed
+	} else if wn.isGovNodes(addr) {
+		return nodeTypeGov
+	} else if wn.isNormNodes(addr) {
+		return nodeTypeNorm
+	} else {
+		return nodeTypeUnknown
 	}
-	return false
+}
+
+func (wn *wrapNode) isGovNodes(addr string) bool {
+	return nodeInList(addr, wn.c.Govs)
 }
 
 func (wn *wrapNode) isSeedNodes(addr string) bool {
-	host, _, _ := net.SplitHostPort(addr)
-	for _, listenAddr := range wn.c.Seeds {
-		listenHost, _, _ := net.SplitHostPort(listenAddr)
-		if host == listenHost {
-			return true
-		}
-	}
-	return false
+	return nodeInList(addr, wn.c.Seeds)
 }
 
 func (wn *wrapNode) isNormNodes(addr string) bool {
-	host, _, _ := net.SplitHostPort(addr)
-	for _, listenAddr := range wn.c.Norms {
-		listenHost, _, _ := net.SplitHostPort(listenAddr)
-		if host == listenHost {
-			return true
-		}
-	}
-	return false
+	return nodeInList(addr, wn.c.Norms)
 }
 
 func (wn *wrapNode) isSelf(addr string) bool {
@@ -292,25 +305,46 @@ func (wn *wrapNode) isSelf(addr string) bool {
 }
 
 func (wn *wrapNode) typeName() string {
+	return type2Name(wn.nodeType)
+}
+
+func type2Name(typ nodeType) string {
 	var name string
-	switch wn.nodeType {
+
+	switch typ {
 	case nodeTypeSeed:
 		name = "seed"
 	case nodeTypeGov:
 		name = "gov"
 	case nodeTypeNorm:
 		name = "norm"
+	default:
+		name = "unknown"
 	}
 	return name
+}
+
+func nodeInList(addr string, list []string) bool {
+	host, _, _ := net.SplitHostPort(addr)
+	for _, listenAddr := range list {
+		listenHost, _, _ := net.SplitHostPort(listenAddr)
+		if host == listenHost {
+			return true
+		}
+	}
+	return false
 }
 
 func generateMultiPubkeys(n int) ([]keypair.PublicKey, []*account.Account) {
 	accList := make([]*account.Account, n)
 	pubkeyList := make([]keypair.PublicKey, n)
 	for i := 0; i < n; i++ {
-		acc := account.NewAccount("")
-		accList[i] = acc
-		pubkeyList[i] = acc.PublicKey
+		pubkeyList[i], accList[i] = generateSinglePubkey()
 	}
 	return pubkeyList, accList
+}
+
+func generateSinglePubkey() (keypair.PublicKey, *account.Account) {
+	acc := account.NewAccount("")
+	return acc.PublicKey, acc
 }
