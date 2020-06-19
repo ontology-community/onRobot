@@ -43,7 +43,7 @@ const (
 )
 
 type MockSubnetConfig struct {
-	Seeds, Govs, Norms []string
+	Seeds, Govs, Norms, Rsvs []string
 }
 
 func (c *MockSubnetConfig) getLength() (S, G, N, T int) {
@@ -69,10 +69,20 @@ func (c *MockSubnetConfig) checkDumpIps() error {
 	return nil
 }
 
+func (c *MockSubnetConfig) IsGovNode(addr string) bool {
+	for _, host := range c.Govs {
+		if addr == host {
+			return true
+		}
+	}
+	return false
+}
+
 type MockSubnet struct {
 	c *MockSubnetConfig
 
 	nodes  []*wrapNode
+	rsv    []string
 	nw     mock.Network      // 共用同一个network
 	ledger *utils.MockLedger // 共用同一个resolver 模拟从合约获取共识节点列表
 }
@@ -87,6 +97,7 @@ func NewMockSubnet(c *MockSubnetConfig) (*MockSubnet, error) {
 		c:     c,
 		nodes: make([]*wrapNode, 0, T),
 		nw:    mock.NewNetwork(),
+		rsv:   c.Rsvs,
 	}
 
 	govPubKeys, govAccounts := generateMultiPubkeys(G)
@@ -126,8 +137,30 @@ func (ms *MockSubnet) AddGovNode(addr string) (*wrapNode, error) {
 	return wn, nil
 }
 
-func (ms *MockSubnet) DelGovNode(addr string) {
-
+func (ms *MockSubnet) DelGovNode(addr string) (wn *wrapNode, err error) {
+	var acc keypair.PublicKey
+	for i, node := range ms.nodes {
+		if node.host == addr {
+			wn = node
+			if node.nodeType != nodeTypeGov {
+				err = fmt.Errorf("node %s is not gov node", addr)
+				return
+			}
+			ms.nodes = append(ms.nodes[:i], ms.nodes[i+1:]...)
+			acc = node.acc.PublicKey
+		}
+	}
+	if wn == nil {
+		err = fmt.Errorf("node %s not exist in gov node list", addr)
+		return
+	}
+	for i, gov := range ms.c.Govs {
+		if gov == addr {
+			ms.c.Govs = append(ms.c.Govs[:i], ms.c.Govs[i+1:]...)
+		}
+	}
+	ms.ledger.DelGovNode(acc)
+	return
 }
 
 func (ms *MockSubnet) CheckAll() error {
@@ -146,6 +179,23 @@ func (ms *MockSubnet) CheckAll() error {
 	return nil
 }
 
+func (ms *MockSubnet) CheckDeletedGovNodes(delNodeList []*wrapNode) error {
+	for _, node := range delNodeList {
+		log.Infof("===============================[check del %s node %s]=================================",
+			node.typeName(), node.host)
+
+		node.nodeType = nodeTypeNorm
+		if err := node.checkMemberInfo(); err != nil {
+			return err
+		}
+		if err := node.checkNeighbors(); err != nil {
+			return err
+		}
+		log.Info("-----------------------------[end check del cov node]----------------------------------")
+	}
+	return nil
+}
+
 func (ms *MockSubnet) generateNode(host string, typ nodeType, acc *account.Account) *wrapNode {
 	if acc == nil {
 		acc = account.NewAccount("")
@@ -159,7 +209,7 @@ func (ms *MockSubnet) generateNode(host string, typ nodeType, acc *account.Accou
 
 	// generate netserver
 	protocol := protocols.NewSubnetHandler(acc, ms.c.Seeds, ms.ledger)
-	wn.node = netserver.NewNetServerWithSubset(host, protocol, ms.nw)
+	wn.node = netserver.NewNetServerWithSubset(host, protocol, ms.nw, ms.rsv)
 
 	ms.nodes = append(ms.nodes, wn)
 	return wn

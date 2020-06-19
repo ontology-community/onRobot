@@ -873,9 +873,8 @@ func Subnet() bool {
 	if err := ms.CheckAll(); err != nil {
 		log.Error(err)
 		return false
-	} else {
-		return true
 	}
+	return true
 }
 
 func SubnetAddMember() bool {
@@ -906,24 +905,78 @@ func SubnetAddMember() bool {
 	dispatch(10)
 
 	// add node
-	wn, err := ms.AddGovNode(params.AddList[0])
-	if err != nil {
-		log.Error(err)
-		return false
+	for _, addr := range params.AddList {
+		wn, err := ms.AddGovNode(addr)
+		if err != nil {
+			log.Error(err)
+			return false
+		}
+		go wn.node.Start()
 	}
-	wn.node.Start()
 	dispatch(params.DispatchAfterAddGovNode)
 
 	// check result
 	if err := ms.CheckAll(); err != nil {
 		log.Error(err)
 		return false
-	} else {
-		return true
 	}
+	return true
 }
 
 func SubnetDelMember() bool {
+	// configuration
+	var params struct {
+		Subnet                  *MockSubnetConfig
+		DelList                 []string
+		Difficulty              int
+		SubnetMaxInactiveTime   int
+		SubnetRefreshDuration   int
+		DispatchAfterDelGovNode int
+	}
+	if err := files.LoadParams(conf.ParamsFileDir, "SubnetDelMember.json", &params); err != nil {
+		log.Error(err)
+		return false
+	}
+	for _, src := range params.DelList {
+		if !params.Subnet.IsGovNode(src) {
+			log.Errorf("config invalid, node %s is not gov node", src)
+		}
+	}
+	p2pcm.Difficulty = params.Difficulty
+	subnet.MaxInactiveTime = time.Duration(params.SubnetMaxInactiveTime) * time.Second
+	subnet.RefreshDuration = time.Duration(params.SubnetRefreshDuration) * time.Second
+
+	// initial subnet
+	ms, err := NewMockSubnet(params.Subnet)
+	if err != nil {
+		log.Error(err)
+		return false
+	}
+	ms.StartAll()
+	dispatch(10)
+
+	// del node
+	delNodeList := make([]*wrapNode, 0)
+	for _, addr := range params.DelList {
+		wn, err := ms.DelGovNode(addr)
+		if err != nil {
+			log.Error(err)
+			return false
+		}
+		delNodeList = append(delNodeList, wn)
+	}
+	dispatch(params.DispatchAfterDelGovNode)
+
+	// check result
+	if err := ms.CheckAll(); err != nil {
+		log.Error(err)
+		return false
+	}
+	if err := ms.CheckDeletedGovNodes(delNodeList); err != nil {
+		log.Error(err)
+		return false
+	}
+
 	return true
 }
 

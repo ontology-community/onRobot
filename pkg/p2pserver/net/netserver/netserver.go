@@ -121,7 +121,7 @@ func NewNetServerWithTxStat(protocol p2p.Protocol, conf *config.P2PNodeConfig) (
 	return s, nil
 }
 
-func NewNetServerWithSubset(listenAddr string, proto p2p.Protocol, nw mock.Network) *NetServer {
+func NewNetServerWithSubset(listenAddr string, proto p2p.Protocol, nw mock.Network, reserves []string) *NetServer {
 	const maxConn = 100
 
 	kid := common.RandPeerKeyId()
@@ -135,7 +135,7 @@ func NewNetServerWithSubset(listenAddr string, proto p2p.Protocol, nw mock.Netwo
 	iport, _ := strconv.Atoi(port)
 	info.Port = uint16(iport)
 	opt := connect_controller.NewConnCtrlOption().MaxInBoundPerIp(maxConn).
-		MaxInBound(maxConn).MaxOutBound(maxConn).WithDialer(dialer).ReservedOnly(nil)
+		MaxInBound(maxConn).MaxOutBound(maxConn).WithDialer(dialer).ReservedOnly(reserves)
 
 	return NewCustomNetServer(kid, info, proto, listener, opt)
 }

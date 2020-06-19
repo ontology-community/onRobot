@@ -21,6 +21,7 @@ package utils
 import (
 	"sync"
 
+	"github.com/ontio/ontology/common/log"
 	"github.com/ontio/ontology-crypto/keypair"
 	vconfig "github.com/ontio/ontology/consensus/vbft/config"
 )
@@ -56,27 +57,27 @@ func NewMockLedger() *MockLedger {
 
 func (self *MockLedger) AddGovNode(key keypair.PublicKey) {
 	self.mu.Lock()
-	pubKey := vconfig.PubkeyID(key)
-	if _, ok := self.gov[pubKey]; !ok {
-		self.gov[pubKey] = struct{}{}
-	}
+	pubKey := getKey(key)
+	self.gov[pubKey] = struct{}{}
 	self.mu.Unlock()
 }
 
 func (self *MockLedger) DelGovNode(key keypair.PublicKey) {
 	self.mu.Lock()
-	pubKey := vconfig.PubkeyID(key)
-	if _, ok := self.gov[pubKey]; ok {
-		delete(self.gov, pubKey)
-	}
+	pubKey := getKey(key)
+	delete(self.gov, pubKey)
+	log.Infof("---------gov node length %d", len(self.gov))
 	self.mu.Unlock()
 }
 
 func (self *MockLedger) exist(key keypair.PublicKey) bool {
-	self.mu.RLock()
-	defer self.mu.RUnlock()
-
-	pubKey := vconfig.PubkeyID(key)
+	self.mu.Lock()
+	pubKey := getKey(key)
 	_, ok := self.gov[pubKey]
+	self.mu.Unlock()
 	return ok
+}
+
+func getKey(key keypair.PublicKey) string {
+	return vconfig.PubkeyID(key)
 }
