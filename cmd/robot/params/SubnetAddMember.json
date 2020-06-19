@@ -18,7 +18,11 @@
     ]
   },
   "AddList": [
-    "127.0.0.24:20336",
-    "127.0.0.25:20336"
-  ]
+    "127.0.0.41:20336",
+    "127.0.0.42:20336"
+  ],
+  "Difficulty": 1,
+  "SubnetMaxInactiveTime": 10,
+  "SubnetRefreshDuration": 10,
+  "DispatchAfterAddGovNode": 60
 }

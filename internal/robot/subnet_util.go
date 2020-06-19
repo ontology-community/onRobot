@@ -73,7 +73,6 @@ type MockSubnet struct {
 	c *MockSubnetConfig
 
 	nodes  []*wrapNode
-	gov    []keypair.PublicKey
 	nw     mock.Network      // 共用同一个network
 	ledger *utils.MockLedger // 共用同一个resolver 模拟从合约获取共识节点列表
 }
@@ -91,9 +90,8 @@ func NewMockSubnet(c *MockSubnetConfig) (*MockSubnet, error) {
 	}
 
 	govPubKeys, govAccounts := generateMultiPubkeys(G)
-	ms.gov = govPubKeys
 	ms.ledger = utils.NewMockLedger()
-	for _, kp := range ms.gov {
+	for _, kp := range govPubKeys {
 		ms.ledger.AddGovNode(kp)
 	}
 
@@ -123,7 +121,6 @@ func (ms *MockSubnet) AddGovNode(addr string) (*wrapNode, error) {
 	}
 
 	pubkey, acc := generateSinglePubkey()
-	ms.gov = append(ms.gov, pubkey)
 	ms.ledger.AddGovNode(pubkey)
 	wn := ms.generateNode(addr, nodeTypeGov, acc)
 	return wn, nil

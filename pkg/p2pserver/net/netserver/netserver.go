@@ -21,17 +21,18 @@ package netserver
 import (
 	"errors"
 	"fmt"
+	"net"
+	"strconv"
+
 	"github.com/ontio/ontology/common/config"
 	"github.com/ontio/ontology/common/log"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/connect_controller"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/mock"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
 	st "github.com/ontology-community/onRobot/pkg/p2pserver/stat"
-	"net"
-	"strconv"
 )
 
 // todo
@@ -214,7 +215,7 @@ func (this *NetServer) ResetRandomPeerID() error {
 func (this *NetServer) Start() error {
 	this.protocol.HandleSystemMessage(this, p2p.NetworkStart{})
 	go this.startNetAccept(this.listener)
-	log.Infof("[p2p]start listen on sync port %d", this.base.Port)
+	log.Infof("[p2p]start listen on sync addr %s", this.base.Addr)
 	go this.processMessage(this.NetChan, this.stopRecvCh)
 
 	log.Debug("[p2p]MessageRouter start to parse p2p message...")
@@ -388,7 +389,7 @@ func (this *NetServer) startNetAccept(listener net.Listener) {
 
 		go func() {
 			if err := this.handleClientConnection(conn); err != nil {
-				log.Warnf("[p2p] client connect error: %s", err)
+				log.Debugf("[p2p] client connect error: %s", err)
 				_ = conn.Close()
 			}
 		}()

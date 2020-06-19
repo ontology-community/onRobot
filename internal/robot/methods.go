@@ -19,6 +19,7 @@
 package robot
 
 import (
+	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/subnet"
 	"math"
 	"math/big"
 	"net"
@@ -845,75 +846,81 @@ func Neighbor() bool {
 
 // 总共10个节点，最开始起10个节点，然后动态增加/删除1个节点
 func Subnet() bool {
-	var params struct {
-		Subnet *MockSubnetConfig
-	}
 
+	// configuration
+	var params struct {
+		Subnet     *MockSubnetConfig
+		Difficulty int
+	}
 	if err := files.LoadParams(conf.ParamsFileDir, "Subnet.json", &params); err != nil {
 		log.Error(err)
 		return false
 	}
+	p2pcm.Difficulty = params.Difficulty
 
-	// set peer id difficulty
-	p2pcm.Difficulty = 1
-
+	// initial subnet
 	ms, err := NewMockSubnet(params.Subnet)
 	if err != nil {
 		log.Error(err)
 		return false
 	}
-	ms.StartAll()
 
+	// run
+	ms.StartAll()
 	dispatch(10)
 
+	// check result
 	if err := ms.CheckAll(); err != nil {
 		log.Error(err)
 		return false
+	} else {
+		return true
 	}
-
-	return true
 }
 
 func SubnetAddMember() bool {
+	// configuration
 	var params struct {
-		Subnet  *MockSubnetConfig
-		AddList []string
+		Subnet                  *MockSubnetConfig
+		AddList                 []string
+		Difficulty              int
+		SubnetMaxInactiveTime   int
+		SubnetRefreshDuration   int
+		DispatchAfterAddGovNode int
 	}
-
 	if err := files.LoadParams(conf.ParamsFileDir, "SubnetAddMember.json", &params); err != nil {
 		log.Error(err)
 		return false
 	}
+	p2pcm.Difficulty = params.Difficulty
+	subnet.MaxInactiveTime = time.Duration(params.SubnetMaxInactiveTime) * time.Second
+	subnet.RefreshDuration = time.Duration(params.SubnetRefreshDuration) * time.Second
 
-	// set peer id difficulty
-	p2pcm.Difficulty = 1
-
+	// initial subnet
 	ms, err := NewMockSubnet(params.Subnet)
 	if err != nil {
 		log.Error(err)
 		return false
 	}
 	ms.StartAll()
-
 	dispatch(10)
 
-	for _, member := range params.AddList {
-		wn, err := ms.AddGovNode(member)
-		if err != nil {
-			log.Error(err)
-			return false
-		}
-		go wn.node.Start()
-	}
-
-	dispatch(10)
-
-	if err := ms.CheckAll(); err != nil {
+	// add node
+	wn, err := ms.AddGovNode(params.AddList[0])
+	if err != nil {
 		log.Error(err)
 		return false
 	}
+	wn.node.Start()
+	dispatch(params.DispatchAfterAddGovNode)
 
-	return true
+	// check result
+	if err := ms.CheckAll(); err != nil {
+		log.Error(err)
+		return false
+	} else {
+		return true
+	}
 }
 
 func SubnetDelMember() bool {

@@ -191,20 +191,10 @@ func (self *ConnectController) checkReservedPeers(remoteAddr string) error {
 	if self.reserveAddrFilter == nil {
 		return nil
 	}
-	// todo delete after test
-	//host, _, _ := net.SplitHostPort(remoteAddr)
-	//list := strings.Split(host, ".")
-	//if len(list) >= 4 {
-	//	la, _ := strconv.Atoi(list[3])
-	//	if la >= 20 && la <= 30 {
-	//		fmt.Println("------gov node-----")
-	//	}
-	//}
-
 	if !self.reserveAddrFilter.Filtered(remoteAddr) && (!self.reserveEnabled() || self.inReserveList(remoteAddr)) {
 		return nil
 	}
-	return fmt.Errorf("the remote addr: %s not in reserved list", remoteAddr)
+	return fmt.Errorf("local %s, the remote addr: %s not in reserved list", self.peerInfo.Addr, remoteAddr)
 }
 
 func (self *ConnectController) getInboundCountWithIp(ip string) uint {
