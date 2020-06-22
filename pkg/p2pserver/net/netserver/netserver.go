@@ -39,7 +39,7 @@ import (
 const softVersion = "2.0.0"
 
 //NewNetServer return the net object in p2p
-func NewNetServer(protocol p2p.Protocol, conf *config.P2PNodeConfig, reserveAddrFilter p2p.AddressFilter) (*NetServer, error) {
+func NewNetServer(protocol p2p.Protocol, conf *config.P2PNodeConfig) (*NetServer, error) {
 	nodePort := conf.NodePort
 	if nodePort == 0 {
 		nodePort = config.DEFAULT_NODE_PORT
@@ -54,6 +54,7 @@ func NewNetServer(protocol p2p.Protocol, conf *config.P2PNodeConfig, reserveAddr
 		rsv = conf.ReservedCfg.ReservedPeers
 	}
 	staticFilter := connect_controller.NewStaticReserveFilter(rsv)
+	reserveAddrFilter := protocol.GetReservedAddrFilter(len(rsv) != 0)
 	reservedPeers := p2p.CombineAddrFilter(staticFilter, reserveAddrFilter)
 
 	option, err := connect_controller.ConnCtrlOptionFromConfig(conf, reservedPeers)
