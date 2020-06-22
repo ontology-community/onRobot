@@ -90,7 +90,7 @@ func (self *HeartbeatHandler) HandlePeerMessage(ctx *p2p.Context, msg msgTypes.M
 	}
 }
 
-func (self *HeartbeatHandler) GetReservedAddrFilter() p2p.AddressFilter {
+func (self *HeartbeatHandler) GetReservedAddrFilter(staticFilterEnable bool) p2p.AddressFilter {
 	return nil
 }
 

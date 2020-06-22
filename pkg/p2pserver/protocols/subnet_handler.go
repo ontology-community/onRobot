@@ -38,7 +38,6 @@ import (
 
 type SubnetHandler struct {
 	seeds     *utils.HostsResolver
-	reconnect *reconnect.ReconnectService
 	discovery *discovery.Discovery
 	bootstrap *bootstrap.BootstrapService
 	subnet    *subnet.SubNet
@@ -56,19 +55,16 @@ func NewSubnetHandler(acct *account.Account, seedList []string, ledger *utils.Mo
 }
 
 func (self *SubnetHandler) start(net p2p.P2P) {
-	self.reconnect = reconnect.NewReconectService(net)
 	maskFilter := self.subnet.GetMaskAddrFilter()
 	self.discovery = discovery.NewDiscovery(net, config.DefConfig.P2PNode.ReservedCfg.MaskPeers,
 		maskFilter, time.Millisecond*1000)
 	self.bootstrap = bootstrap.NewBootstrapService(net, self.seeds)
-	go self.reconnect.Start()
 	go self.discovery.Start()
 	go self.bootstrap.Start()
 	go self.subnet.Start(net)
 }
 
 func (self *SubnetHandler) stop() {
-	self.reconnect.Stop()
 	self.discovery.Stop()
 	self.bootstrap.Stop()
 	self.subnet.Stop()
@@ -79,12 +75,10 @@ func (self *SubnetHandler) HandleSystemMessage(net p2p.P2P, msg p2p.SystemMessag
 	case p2p.NetworkStart:
 		self.start(net)
 	case p2p.PeerConnected:
-		self.reconnect.OnAddPeer(m.Info)
 		self.discovery.OnAddPeer(m.Info)
 		self.bootstrap.OnAddPeer(m.Info)
 		self.subnet.OnAddPeer(net, m.Info)
 	case p2p.PeerDisConnected:
-		self.reconnect.OnDelPeer(m.Info)
 		self.discovery.OnDelPeer(m.Info)
 		self.bootstrap.OnDelPeer(m.Info)
 		self.subnet.OnDelPeer(m.Info)
@@ -118,16 +112,16 @@ func (self *SubnetHandler) HandlePeerMessage(ctx *p2p.Context, msg msgTypes.Mess
 	}
 }
 
-func (self *SubnetHandler) GetReservedAddrFilter() p2p.AddressFilter {
-	return self.subnet.GetReservedAddrFilter()
+func (self *SubnetHandler) GetReservedAddrFilter(staticFilterEnabled bool) p2p.AddressFilter {
+	return self.subnet.GetReservedAddrFilter(staticFilterEnabled)
 }
 
 func (self *SubnetHandler) GetMaskAddrFilter() p2p.AddressFilter {
 	return self.subnet.GetMaskAddrFilter()
 }
 
-func (mh *SubnetHandler) ReconnectService() *reconnect.ReconnectService {
-	return mh.reconnect
+func (self *SubnetHandler) ReconnectService() *reconnect.ReconnectService {
+	return nil
 }
 
 func (self *SubnetHandler) GetSubnetMembersInfo() []common.SubnetMemberInfo {

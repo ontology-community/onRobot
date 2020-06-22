@@ -29,10 +29,6 @@ import (
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 )
 
-func init() {
-	common.Difficulty = 1
-}
-
 type network struct {
 	sync.RWMutex
 	canEstablish map[string]struct{}

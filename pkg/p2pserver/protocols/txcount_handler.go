@@ -67,7 +67,7 @@ func NewTxCountHandler(acc *account.Account) *TxCountHandler {
 
 func (self *TxCountHandler) start(net p2p.P2P) {
 
-	self.reconnect = reconnect.NewReconectService(net)
+	self.reconnect = reconnect.NewReconectService(net, nil)
 	maskFilter := self.subnet.GetMaskAddrFilter()
 	self.discovery = discovery.NewDiscovery(net, config.DefConfig.P2PNode.ReservedCfg.MaskPeers, maskFilter, 0)
 	self.bootstrap = bootstrap.NewBootstrapService(net, self.seeds)
@@ -157,6 +157,6 @@ func (self *TxCountHandler) HandlePeerMessage(ctx *p2p.Context, msg msgTypes.Mes
 	}
 }
 
-func (self *TxCountHandler) GetReservedAddrFilter() p2p.AddressFilter {
-	return self.subnet.GetReservedAddrFilter()
+func (self *TxCountHandler) GetReservedAddrFilter(staticFilterEnable bool) p2p.AddressFilter {
+	return self.subnet.GetReservedAddrFilter(staticFilterEnable)
 }

@@ -71,7 +71,7 @@ func (self *NeighborHandler) HandlePeerMessage(ctx *p2p.Context, msg msgTypes.Me
 	}
 }
 
-func (self *NeighborHandler) GetReservedAddrFilter() p2p.AddressFilter {
+func (self *NeighborHandler) GetReservedAddrFilter(staticFilterEnable bool) p2p.AddressFilter {
 	return nil
 }
 

@@ -43,7 +43,7 @@ func init() {
 	flag.StringVar(&TestCaseConfig, "params", "target/robot/params", "Test params")
 	flag.StringVar(&WalletConfig, "wallet", "target/robot/wallet.dat", "Wallet path")
 	flag.StringVar(&TransferWalletConfig, "transfer", "target/robot/transfer_wallet.dat", "Transfer wallet path")
-	flag.StringVar(&Methods, "t", "subnetDelMember", "methods to run. use ',' to split methods")
+	flag.StringVar(&Methods, "t", "connect", "methods to run. use ',' to split methods")
 	flag.Parse()
 }
 

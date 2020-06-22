@@ -31,7 +31,7 @@ import (
 	p2pcm "github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/net/netserver"
-	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/params"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols"
@@ -58,9 +58,19 @@ func reset() {
 
 // GenerateNetServerWithProtocol get netserver with some protocol
 func GenerateNetServerWithProtocol(protocol p2p.Protocol) (ns *netserver.NetServer) {
-	var err error
+	var (
+		//rsv []string
+		err error
+	)
+	//nodeCfg := config.DefConfig.P2PNode
+	//if nodeCfg.ReservedPeersOnly && nodeCfg.ReservedCfg != nil {
+	//	rsv = nodeCfg.ReservedCfg.ReservedPeers
+	//}
+	//staticFilter := connect_controller.NewStaticReserveFilter(rsv)
+	//reserved := protocol.GetReservedAddrFilter(len(rsv) != 0)
+	//reservedPeers := p2p.CombineAddrFilter(staticFilter, reserved)
 
-	if ns, err = netserver.NewNetServer(protocol, conf.DefConfig.Net); err != nil {
+	if ns, err = netserver.NewNetServer(protocol, conf.DefConfig.Net, nil); err != nil {
 		log.Fatalf("[NewNetServer] crashed, err %s", err)
 	}
 	if err = ns.Start(); err != nil {
@@ -75,7 +85,7 @@ func GenerateNetServerWithContinuePort(protocol p2p.Protocol, port uint16) (ns *
 	var err error
 
 	conf.DefConfig.Net.NodePort = port
-	if ns, err = netserver.NewNetServer(protocol, conf.DefConfig.Net); err != nil {
+	if ns, err = netserver.NewNetServer(protocol, conf.DefConfig.Net, nil); err != nil {
 		log.Fatalf("[NewNetServer] crashed, err %s", err)
 		return nil
 	}
@@ -88,7 +98,7 @@ func GenerateNetServerWithContinuePort(protocol p2p.Protocol, port uint16) (ns *
 
 func GenerateNetServerWithFakeKid(protocol p2p.Protocol, kid *p2pcm.PeerKeyId) (ns *netserver.NetServer) {
 	var err error
-	if ns, err = netserver.NewNetServerWithKid(protocol, conf.DefConfig.Net, kid); err != nil {
+	if ns, err = netserver.NewNetServerWithKid(protocol, conf.DefConfig.Net, kid, nil); err != nil {
 		log.Fatalf("[NewNetServer] crashed, err %s", err)
 		return nil
 	}

@@ -22,8 +22,7 @@ import (
 	"sync"
 
 	"github.com/ontio/ontology-crypto/keypair"
-	"github.com/ontio/ontology/common/log"
-	vconfig "github.com/ontio/ontology/consensus/vbft/config"
+	"github.com/ontio/ontology/consensus/vbft/config"
 )
 
 type MockGovNodeResolver struct {
@@ -36,11 +35,15 @@ func NewGovNodeMockResolver(db *MockLedger) *MockGovNodeResolver {
 	}
 }
 
-func (self *MockGovNodeResolver) IsGovNode(key keypair.PublicKey) bool {
+func (self *MockGovNodeResolver) IsGovNode(key string) bool {
 	if self.db == nil {
 		return false
 	}
 	return self.db.exist(key)
+}
+
+func (self *MockGovNodeResolver) IsGovNodePubKey(key keypair.PublicKey) bool {
+	return self.db.exist(getKey(key))
 }
 
 type MockLedger struct {
@@ -66,15 +69,14 @@ func (self *MockLedger) DelGovNode(key keypair.PublicKey) {
 	self.mu.Lock()
 	pubKey := getKey(key)
 	delete(self.gov, pubKey)
-	log.Infof("---------gov node length %d", len(self.gov))
 	self.mu.Unlock()
 }
 
-func (self *MockLedger) exist(key keypair.PublicKey) bool {
-	self.mu.Lock()
-	pubKey := getKey(key)
-	_, ok := self.gov[pubKey]
-	self.mu.Unlock()
+func (self *MockLedger) exist(key string) bool {
+	self.mu.RLock()
+	defer self.mu.RUnlock()
+
+	_, ok := self.gov[key]
 	return ok
 }
 
