@@ -21,8 +21,8 @@ package utils
 import (
 	"sync"
 
-	"github.com/ontio/ontology/common/log"
 	"github.com/ontio/ontology-crypto/keypair"
+	"github.com/ontio/ontology/common/log"
 	vconfig "github.com/ontio/ontology/consensus/vbft/config"
 )
 

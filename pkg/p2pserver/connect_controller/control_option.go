@@ -20,7 +20,7 @@ package connect_controller
 import (
 	"github.com/ontio/ontology/common/config"
 	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
-	)
+)
 
 type ConnCtrlOption struct {
 	MaxConnOutBound     uint

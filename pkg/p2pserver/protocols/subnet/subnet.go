@@ -57,7 +57,7 @@ type SubNet struct {
 	members   map[string]*MemberStatus  // gov node info, listen address --> pubkey hex string
 }
 
-func NewSubNet(acc *account.Account, seeds *utils.HostsResolver, 
+func NewSubNet(acc *account.Account, seeds *utils.HostsResolver,
 	gov utils.GovNodeResolver) *SubNet {
 	return &SubNet{
 		acct:     acc,
@@ -91,7 +91,9 @@ func (self *SubNet) OnAddPeer(net p2p.P2P, info *peer.PeerInfo) {
 	member := self.members[listenAddr]
 	if self.isSeedAddr(listenAddr) || member != nil {
 		self.connected[listenAddr] = info
-		self.sendMembersRequest(net, info.Id)
+		if supportSubnet(info.SoftVersion) {
+			self.sendMembersRequest(net, info.Id)
+		}
 	}
 	if member != nil {
 		member.Alive = time.Now()
@@ -218,8 +220,10 @@ func (self *SubNet) OnMembersResponse(ctx *p2p.Context, msg *types.SubnetMembers
 		return
 	}
 
+	updated := false
 	for _, info := range msg.Members {
 		if self.members[info.Addr] == nil {
+			updated = true
 			self.members[info.Addr] = &MemberStatus{
 				PubKey: info.PubKey,
 				Alive:  time.Now(),
@@ -267,6 +271,9 @@ func (self *SubNet) sendMembersRequestToRandNodes(net p2p.P2P) {
 	self.lock.RLock()
 	// note map iteration is randomized
 	for _, p := range self.connected {
+		if !supportSubnet(p.SoftVersion) {
+			continue
+		}
 		count += 1
 		peerIds = append(peerIds, p.Id)
 		if count == MaxMemberRequests {
