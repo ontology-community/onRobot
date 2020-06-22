@@ -34,8 +34,7 @@ import (
 	st "github.com/ontology-community/onRobot/pkg/p2pserver/stat"
 )
 
-// todo
-const softVersion = "2.0.0"
+var SoftVersion = "2.0.0"
 
 //NewNetServer return the net object in p2p
 func NewNetServer(protocol p2p.Protocol, conf *config.P2PNodeConfig, reserveAddrFilter p2p.AddressFilter) (*NetServer, error) {
@@ -46,7 +45,7 @@ func NewNetServer(protocol p2p.Protocol, conf *config.P2PNodeConfig, reserveAddr
 
 	keyId := common.RandPeerKeyId()
 	info := peer.NewPeerInfo(keyId.Id, common.PROTOCOL_VERSION, common.SERVICE_NODE, true,
-		conf.HttpInfoPort, nodePort, 0, softVersion, "")
+		conf.HttpInfoPort, nodePort, 0, SoftVersion, "")
 
 	option, err := connect_controller.ConnCtrlOptionFromConfig(conf, reserveAddrFilter)
 	if err != nil {

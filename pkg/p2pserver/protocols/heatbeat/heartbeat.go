@@ -86,7 +86,7 @@ func (this *HeartBeat) heartBeatService() {
 
 func (this *HeartBeat) ping() {
 	if this.NeedInterrupt(true) {
-		log.Debug("[p2p]interrupt ping...")
+		log.Info("[p2p]interrupt ping...")
 		return
 	}
 

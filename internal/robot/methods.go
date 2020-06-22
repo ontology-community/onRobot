@@ -191,10 +191,7 @@ func HandshakeWrongMsg() bool {
 		return false
 	}
 
-	dispatch(params.DispatchTime)
-
 	log.Info("handshakeWrongMsg end!")
-
 	return true
 }
 
@@ -355,12 +352,10 @@ func ResetPeerID() bool {
 	}
 	newPeerID := ns.GetID()
 	log.Infof("new peerID %s", newPeerID.ToHexString())
-	if err := ns.Connect(params.Remote); err != nil {
-		log.Errorf("connecting to %s failed, err: %s", params.Remote, err)
-		return true
+	if err := ns.Connect(params.Remote); err == nil {
+		log.Errorf("%s should not be connected again", params.Remote)
+		return false
 	}
-
-	dispatch(params.DispatchTime)
 
 	log.Info("reset peerID end!")
 	return true
@@ -400,7 +395,7 @@ func DDos() bool {
 		ns := GenerateNetServerWithContinuePort(protocol, port)
 		peerID := ns.GetID()
 		if err := ns.Connect(params.Remote); err != nil {
-			log.Errorf("peer %s connecting to %s failed, err: %s", peerID.ToHexString(), params.Remote, err)
+			log.Infof("peer %s connecting to %s failed, err: %s", peerID.ToHexString(), params.Remote, err)
 		} else {
 			log.Infof("peer %s, index %d connecting to %s success", peerID.ToHexString(), int(port)-params.StartPort, params.Remote)
 		}
@@ -661,6 +656,8 @@ func DoubleSpend() bool {
 	if balanceAfterTransfer[0].Ont != "0" {
 		log.Error("balance after transfer should be 0")
 		return false
+	} else {
+		log.Infof("balance after transfer %s", balanceAfterTransfer[0].Ont)
 	}
 
 	// check preTx
@@ -732,6 +729,7 @@ func TxCount() bool {
 		log.Error(err)
 		return false
 	}
+	pr.SetDifficulty(1)
 
 	// new dao
 	dao.NewDao(params.Mysql)
@@ -796,7 +794,7 @@ func Neighbor() bool {
 	ch := make(chan *types.FindNodeResp)
 	protocol := protocols.NewNeighborHandler(ch)
 	ns := GenerateNetServerWithProtocol(protocol)
-	pr, err := ns.ConnectAndReturnPeer(params.Remote)
+	peer, err := ns.ConnectAndReturnPeer(params.Remote)
 	if err != nil {
 		log.Errorf("connect peer err: %s", err)
 		return false
@@ -832,7 +830,7 @@ func Neighbor() bool {
 			}
 
 		case <-ticker.C:
-			if err := pr.Send(req); err != nil {
+			if err := peer.Send(req); err != nil {
 				log.Errorf("send find neighbor nodes req err %s", err)
 				return false
 			}
@@ -849,14 +847,13 @@ func Subnet() bool {
 
 	// configuration
 	var params struct {
-		Subnet     *MockSubnetConfig
-		Difficulty int
+		Subnet *MockSubnetConfig
 	}
 	if err := files.LoadParams(conf.ParamsFileDir, "Subnet.json", &params); err != nil {
 		log.Error(err)
 		return false
 	}
-	p2pcm.Difficulty = params.Difficulty
+	pr.SetDifficulty(1)
 
 	// initial subnet
 	ms, err := NewMockSubnet(params.Subnet)
@@ -882,7 +879,6 @@ func SubnetAddMember() bool {
 	var params struct {
 		Subnet                  *MockSubnetConfig
 		AddList                 []string
-		Difficulty              int
 		SubnetMaxInactiveTime   int
 		SubnetRefreshDuration   int
 		DispatchAfterAddGovNode int
@@ -891,7 +887,7 @@ func SubnetAddMember() bool {
 		log.Error(err)
 		return false
 	}
-	p2pcm.Difficulty = params.Difficulty
+	pr.SetDifficulty(1)
 	subnet.MaxInactiveTime = time.Duration(params.SubnetMaxInactiveTime) * time.Second
 	subnet.RefreshDuration = time.Duration(params.SubnetRefreshDuration) * time.Second
 
@@ -928,7 +924,6 @@ func SubnetDelMember() bool {
 	var params struct {
 		Subnet                  *MockSubnetConfig
 		DelList                 []string
-		Difficulty              int
 		SubnetMaxInactiveTime   int
 		SubnetRefreshDuration   int
 		DispatchAfterDelGovNode int
@@ -942,7 +937,7 @@ func SubnetDelMember() bool {
 			log.Errorf("config invalid, node %s is not gov node", src)
 		}
 	}
-	p2pcm.Difficulty = params.Difficulty
+	pr.SetDifficulty(1)
 	subnet.MaxInactiveTime = time.Duration(params.SubnetMaxInactiveTime) * time.Second
 	subnet.RefreshDuration = time.Duration(params.SubnetRefreshDuration) * time.Second
 

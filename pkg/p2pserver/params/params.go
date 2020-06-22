@@ -18,7 +18,10 @@
 
 package params
 
-import "time"
+import (
+	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
+	"time"
+)
 
 // handshake test cases
 const (
@@ -57,6 +60,7 @@ var (
 	DefHeartbeatInterruptPingLastTime   int64  = 0
 	DefHeartbeatInterruptPongLastTime   int64  = 0
 	DefEnableTxStat                     bool   = false
+	DefDifficulty                       int    = common.Difficulty
 )
 
 func InitializeTestParams() {
@@ -69,6 +73,7 @@ func InitializeTestParams() {
 	HeartbeatInterruptPingLastTime = DefHeartbeatInterruptPingLastTime
 	HeartbeatInterruptPongLastTime = DefHeartbeatInterruptPongLastTime
 	EnableTxStat = DefEnableTxStat
+	common.Difficulty = DefDifficulty
 }
 
 func Reset() {
@@ -113,4 +118,8 @@ func SetHeartbeatTestInterruptPongLastTime(sec int64) {
 // tx stat
 func SetEnableTxStat() {
 	EnableTxStat = true
+}
+
+func SetDifficulty(difficulty int) {
+	common.Difficulty = difficulty
 }

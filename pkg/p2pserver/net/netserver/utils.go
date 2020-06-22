@@ -41,7 +41,7 @@ func NewNetServerWithKid(protocol p2p.Protocol, conf *config.P2PNodeConfig, kid 
 	}
 
 	info := peer.NewPeerInfo(kid.Id, common.PROTOCOL_VERSION, common.SERVICE_NODE, true,
-		conf.HttpInfoPort, nodePort, 0, softVersion, "")
+		conf.HttpInfoPort, nodePort, 0, SoftVersion, "")
 
 	option, err := connect_controller.ConnCtrlOptionFromConfig(conf, reserveAddrFilter)
 	if err != nil {
@@ -68,7 +68,7 @@ func NewNetServerWithTxStat(protocol p2p.Protocol, conf *config.P2PNodeConfig, r
 
 	keyId := common.RandPeerKeyId()
 	info := peer.NewPeerInfo(keyId.Id, common.PROTOCOL_VERSION, common.SERVICE_NODE, true,
-		conf.HttpInfoPort, nodePort, 0, softVersion, "")
+		conf.HttpInfoPort, nodePort, 0, SoftVersion, "")
 
 	option, err := connect_controller.ConnCtrlOptionFromConfig(conf, reserveAddrFilter)
 	if err != nil {
@@ -95,7 +95,7 @@ func NewNetServerWithSubset(listenAddr string, proto p2p.Protocol, nw mock.Netwo
 
 	kid := common.RandPeerKeyId()
 	info := peer.NewPeerInfo(kid.Id, common.PROTOCOL_VERSION, common.SERVICE_NODE, true,
-		0, 0, 0, softVersion, "")
+		0, 0, 0, SoftVersion, "")
 
 	listener := nw.NewListenerWithAddr(kid.Id, listenAddr)
 	host, port, _ := net.SplitHostPort(listenAddr)
