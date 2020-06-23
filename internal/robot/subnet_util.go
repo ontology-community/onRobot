@@ -188,7 +188,6 @@ func (ms *MockSubnet) DelGovNode(addr string) (wn *wrapNode, err error) {
 	return
 }
 
-// todo
 /*
 共识节点也是种子节点的情况，既担任共识节点的角色维持subnet网络列表，过滤掉subnet节点ip发往普通节点；也担任种子节点的角色，允许所有普通节点进行连接和区块同步。
 */
@@ -333,7 +332,7 @@ func (wn *wrapNode) checkMemberInfo() error {
 
 	// 4. check gov member length
 	if len(memList) != len(wn.cfg.Govs) {
-		return fmt.Errorf("gov length %d != mems lenth %d", len(wn.cfg.Govs), len(memList))
+		return fmt.Errorf("subnet member length err, member length( %d) should be %d", len(memList), len(wn.cfg.Govs))
 	}
 
 	return nil
@@ -377,19 +376,24 @@ func (wn *wrapNode) checkNeighborNode(addr string) (typName string, err error) {
 }
 
 func (wn *wrapNode) checkNeighborCount(L int) error {
+	var num int
+
 	S, G, N, _ := wn.cfg.getLength()
 	switch wn.nodeType {
 	case nodeTypeSeed:
-		if L != S+G+N-1 {
-			return fmt.Errorf("seed node neighbor count %d invalid", L)
+		num = S + G + N - 1
+		if L != num {
+			return fmt.Errorf("seed node neighbor count(%d) should be %d", L, num)
 		}
 	case nodeTypeGov:
-		if L != S+G-1 {
-			return fmt.Errorf("gov node neighbor count %d invalid", L)
+		num = S + G - 1
+		if L != num {
+			return fmt.Errorf("gov node neighbor count(%d) should be %d", L, num)
 		}
 	case nodeTypeNorm:
-		if L != S+N-1 {
-			return fmt.Errorf("norm node neighbor count %d invalid", L)
+		num := S + N - 1
+		if L != num {
+			return fmt.Errorf("norm node neighbor count(%d) shoud be %d", L, num)
 		}
 	}
 	return nil
