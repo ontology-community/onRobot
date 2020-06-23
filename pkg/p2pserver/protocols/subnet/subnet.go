@@ -30,7 +30,7 @@ import (
 	"github.com/ontio/ontology/consensus/vbft/config"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/utils"
 )
@@ -260,6 +260,8 @@ func (self *SubNet) newMembersRequest(from, to common.PeerId) *types.SubnetMembe
 		if err != nil {
 			return nil
 		}
+	} else if self.IsSeedNode() {
+		request = types.NewMembersRequestFromSeed()
 	}
 
 	return request

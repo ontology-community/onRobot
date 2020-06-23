@@ -26,5 +26,6 @@
   ],
   "SubnetMaxInactiveTime": 10,
   "SubnetRefreshDuration": 10,
+  "DispatchBeforeAddGovNode": 30,
   "DispatchAfterAddGovNode": 60
 }

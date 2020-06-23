@@ -151,15 +151,14 @@ func (self *ConnectController) removeConnecting(addr string) {
 }
 
 func (self *ConnectController) checkReservedPeers(remoteAddr string) error {
-	// todo
-	//if self.ReservedPeers == nil {
-	//	return nil
-	//}
+	if self.ReservedPeers == nil {
+		return nil
+	}
 	if self.ReservedPeers.Contains(remoteAddr) {
 		return nil
 	}
 
-	return fmt.Errorf("the remote addr: %s not in reserved list", remoteAddr)
+	return fmt.Errorf("local %s, the remote addr: %s not in reserved list", self.peerInfo.Addr, remoteAddr)
 }
 
 func (self *ConnectController) getInboundCountWithIp(ip string) uint {
@@ -213,7 +212,6 @@ func (self *ConnectController) Connect(addr string) (*peer.PeerInfo, net.Conn, e
 		return nil, nil, fmt.Errorf("node exist in connecting list: %s", addr)
 	}
 	defer self.removeConnecting(addr)
-
 	conn, err := self.dialer.Dial(addr)
 	if err != nil {
 		return nil, nil, err

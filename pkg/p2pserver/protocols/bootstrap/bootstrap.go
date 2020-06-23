@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
-	msgpack "github.com/ontology-community/onRobot/pkg/p2pserver/message/msg_pack"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/message/msg_pack"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
-	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/utils"
 )

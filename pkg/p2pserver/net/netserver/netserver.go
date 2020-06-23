@@ -228,7 +228,7 @@ func (this *NetServer) connect(addr string) error {
 			this.protocol.HandleSystemMessage(this, p2p.HostAddrDetected{ListenAddr: this.connCtrl.OwnAddress()})
 			return nil
 		}
-		log.Infof("[p2p] node host address %s detected failed: %v", this.connCtrl.OwnAddress(), err)
+		log.Debugf("[p2p] node host address %s detected failed: %v", this.connCtrl.OwnAddress(), err)
 		return err
 	}
 	remotePeer := peer.NewPeer(peerInfo, conn, this.NetChan)

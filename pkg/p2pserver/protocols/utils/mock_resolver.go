@@ -47,13 +47,13 @@ func (self *MockGovNodeResolver) IsGovNodePubKey(key keypair.PublicKey) bool {
 }
 
 type MockLedger struct {
-	mu  *sync.RWMutex
+	mu  *sync.Mutex
 	gov map[string]struct{}
 }
 
 func NewMockLedger() *MockLedger {
 	return &MockLedger{
-		mu:  new(sync.RWMutex),
+		mu:  new(sync.Mutex),
 		gov: make(map[string]struct{}),
 	}
 }
@@ -73,10 +73,9 @@ func (self *MockLedger) DelGovNode(key keypair.PublicKey) {
 }
 
 func (self *MockLedger) exist(key string) bool {
-	self.mu.RLock()
-	defer self.mu.RUnlock()
-
+	self.mu.Lock()
 	_, ok := self.gov[key]
+	self.mu.Unlock()
 	return ok
 }
 

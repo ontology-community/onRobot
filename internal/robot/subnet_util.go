@@ -83,7 +83,6 @@ type MockSubnet struct {
 	c *MockSubnetConfig
 
 	nodes  []*wrapNode
-	rsv    []string
 	net    mock.Network      // 共用同一个network
 	ledger *utils.MockLedger // 共用同一个resolver 模拟从合约获取共识节点列表
 }
@@ -98,7 +97,6 @@ func NewMockSubnet(c *MockSubnetConfig) (*MockSubnet, error) {
 		c:     c,
 		nodes: make([]*wrapNode, 0, T),
 		net:   mock.NewNetwork(),
-		rsv:   c.Rsvs,
 	}
 
 	govPubKeys, govAccounts := generateMultiPubkeys(G)
@@ -208,7 +206,7 @@ func (ms *MockSubnet) generateNode(host string, typ nodeType, acc *account.Accou
 		acc = account.NewAccount("")
 	}
 	wn := &wrapNode{
-		c:        ms.c,
+		cfg:      ms.c,
 		acc:      acc,
 		host:     host,
 		nodeType: typ,
@@ -216,8 +214,8 @@ func (ms *MockSubnet) generateNode(host string, typ nodeType, acc *account.Accou
 
 	// generate netserver
 	protocol := protocols.NewSubnetHandler(acc, ms.c.Seeds, ms.ledger)
-	resvFilter := protocol.GetReservedAddrFilter(len(ms.rsv) != 0)
-	wn.node = netserver.NewNetServerWithSubset(host, protocol, ms.net, ms.rsv, resvFilter)
+	resvFilter := protocol.GetReservedAddrFilter(len(ms.c.Rsvs) != 0)
+	wn.node = netserver.NewNetServerWithSubset(host, protocol, ms.net, ms.c.Rsvs, resvFilter)
 
 	ms.nodes = append(ms.nodes, wn)
 	return wn
@@ -225,7 +223,7 @@ func (ms *MockSubnet) generateNode(host string, typ nodeType, acc *account.Accou
 
 // wrapNode
 type wrapNode struct {
-	c        *MockSubnetConfig
+	cfg      *MockSubnetConfig
 	node     *netserver.NetServer
 	acc      *account.Account
 	host     string
@@ -256,8 +254,8 @@ func (wn *wrapNode) checkMemberInfo() error {
 	}
 
 	// 4. check gov member length
-	if len(memList) != len(wn.c.Govs) {
-		return fmt.Errorf("gov length %d != mems lenth %d", len(wn.c.Govs), len(memList))
+	if len(memList) != len(wn.cfg.Govs) {
+		return fmt.Errorf("gov length %d != mems lenth %d", len(wn.cfg.Govs), len(memList))
 	}
 
 	return nil
@@ -301,7 +299,7 @@ func (wn *wrapNode) checkNeighborNode(addr string) (typName string, err error) {
 }
 
 func (wn *wrapNode) checkNeighborCount(L int) error {
-	S, G, N, _ := wn.c.getLength()
+	S, G, N, _ := wn.cfg.getLength()
 	switch wn.nodeType {
 	case nodeTypeSeed:
 		if L != S+G+N-1 {
@@ -342,15 +340,15 @@ func (wn *wrapNode) remoteNodeType(addr string) nodeType {
 }
 
 func (wn *wrapNode) isGovNodes(addr string) bool {
-	return nodeInList(addr, wn.c.Govs)
+	return nodeInList(addr, wn.cfg.Govs)
 }
 
 func (wn *wrapNode) isSeedNodes(addr string) bool {
-	return nodeInList(addr, wn.c.Seeds)
+	return nodeInList(addr, wn.cfg.Seeds)
 }
 
 func (wn *wrapNode) isNormNodes(addr string) bool {
-	return nodeInList(addr, wn.c.Norms)
+	return nodeInList(addr, wn.cfg.Norms)
 }
 
 func (wn *wrapNode) isSelf(addr string) bool {

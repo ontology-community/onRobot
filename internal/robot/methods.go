@@ -847,7 +847,8 @@ func Subnet() bool {
 
 	// configuration
 	var params struct {
-		Subnet *MockSubnetConfig
+		Subnet   *MockSubnetConfig
+		Dispatch int
 	}
 	if err := files.LoadParams(conf.ParamsFileDir, "Subnet.json", &params); err != nil {
 		log.Error(err)
@@ -864,7 +865,7 @@ func Subnet() bool {
 
 	// run
 	ms.StartAll()
-	dispatch(15)
+	dispatch(params.Dispatch)
 
 	// check result
 	if err := ms.CheckAll(); err != nil {
@@ -877,11 +878,12 @@ func Subnet() bool {
 func SubnetAddMember() bool {
 	// configuration
 	var params struct {
-		Subnet                  *MockSubnetConfig
-		AddList                 []string
-		SubnetMaxInactiveTime   int
-		SubnetRefreshDuration   int
-		DispatchAfterAddGovNode int
+		Subnet                   *MockSubnetConfig
+		AddList                  []string
+		SubnetMaxInactiveTime    int
+		SubnetRefreshDuration    int
+		DispatchBeforeAddGovNode int
+		DispatchAfterAddGovNode  int
 	}
 	if err := files.LoadParams(conf.ParamsFileDir, "SubnetAddMember.json", &params); err != nil {
 		log.Error(err)
@@ -898,7 +900,7 @@ func SubnetAddMember() bool {
 		return false
 	}
 	ms.StartAll()
-	dispatch(50)
+	dispatch(params.DispatchBeforeAddGovNode)
 
 	// add node
 	for _, addr := range params.AddList {
@@ -922,11 +924,12 @@ func SubnetAddMember() bool {
 func SubnetDelMember() bool {
 	// configuration
 	var params struct {
-		Subnet                  *MockSubnetConfig
-		DelList                 []string
-		SubnetMaxInactiveTime   int
-		SubnetRefreshDuration   int
-		DispatchAfterDelGovNode int
+		Subnet                   *MockSubnetConfig
+		DelList                  []string
+		SubnetMaxInactiveTime    int
+		SubnetRefreshDuration    int
+		DispatchBeforeDelGovNode int
+		DispatchAfterDelGovNode  int
 	}
 	if err := files.LoadParams(conf.ParamsFileDir, "SubnetDelMember.json", &params); err != nil {
 		log.Error(err)
@@ -948,7 +951,7 @@ func SubnetDelMember() bool {
 		return false
 	}
 	ms.StartAll()
-	dispatch(10)
+	dispatch(params.DispatchBeforeDelGovNode)
 
 	// del node
 	delNodeList := make([]*wrapNode, 0)
