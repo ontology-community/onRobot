@@ -20,12 +20,11 @@ package robot
 
 import (
 	"fmt"
-	"net"
-	"time"
-
 	"github.com/ontio/ontology-crypto/keypair"
 	"github.com/ontio/ontology/account"
 	"github.com/ontio/ontology/common/log"
+	"net"
+	"time"
 
 	p2pcm "github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/mock"
@@ -53,12 +52,17 @@ func (c *MockSubnetConfig) getLength() (S, G, N, T int) {
 	return
 }
 
-func (c *MockSubnetConfig) checkDumpIps() error {
-	exist := make(map[string]struct{})
+func (c *MockSubnetConfig) combineNodes() []string {
 	list := make([]string, 0)
 	list = append(list, c.Seeds...)
 	list = append(list, c.Govs...)
 	list = append(list, c.Norms...)
+	return list
+}
+
+func (c *MockSubnetConfig) checkDumpIps() error {
+	exist := make(map[string]struct{})
+	list := c.combineNodes()
 	for _, addr := range list {
 		host, _, _ := net.SplitHostPort(addr)
 		if _, ok := exist[host]; ok {
@@ -68,6 +72,15 @@ func (c *MockSubnetConfig) checkDumpIps() error {
 		}
 	}
 	return nil
+}
+
+func (c *MockSubnetConfig) IsSeedNode(addr string) bool {
+	for _, host := range c.Seeds {
+		if addr == host {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *MockSubnetConfig) IsGovNode(addr string) bool {
@@ -106,13 +119,16 @@ func NewMockSubnet(c *MockSubnetConfig) (*MockSubnet, error) {
 	}
 
 	for _, addr := range c.Seeds {
-		ms.generateNode(addr, nodeTypeSeed, nil)
+		wn := ms.generateNode(addr, nodeTypeSeed, nil)
+		ms.nodes = append(ms.nodes, wn)
 	}
 	for i, addr := range c.Govs {
-		ms.generateNode(addr, nodeTypeGov, govAccounts[i])
+		wn := ms.generateNode(addr, nodeTypeGov, govAccounts[i])
+		ms.nodes = append(ms.nodes, wn)
 	}
 	for _, addr := range c.Norms {
-		ms.generateNode(addr, nodeTypeNorm, nil)
+		wn := ms.generateNode(addr, nodeTypeNorm, nil)
+		ms.nodes = append(ms.nodes, wn)
 	}
 
 	return ms, nil
@@ -128,6 +144,9 @@ func (ms *MockSubnet) StartAll() {
 	for _, node := range others {
 		go node.node.Start()
 	}
+	//for _, node := range ms.nodes {
+	//	go node.node.Start()
+	//}
 }
 
 func (ms *MockSubnet) AddGovNode(addr string) (*wrapNode, error) {
@@ -139,6 +158,7 @@ func (ms *MockSubnet) AddGovNode(addr string) (*wrapNode, error) {
 	pubkey, acc := generateSinglePubkey()
 	ms.ledger.AddGovNode(pubkey)
 	wn := ms.generateNode(addr, nodeTypeGov, acc)
+	ms.nodes = append(ms.nodes, wn)
 	return wn, nil
 }
 
@@ -166,6 +186,41 @@ func (ms *MockSubnet) DelGovNode(addr string) (wn *wrapNode, err error) {
 	}
 	ms.ledger.DelGovNode(acc)
 	return
+}
+
+// todo
+/*
+共识节点也是种子节点的情况，既担任共识节点的角色维持subnet网络列表，过滤掉subnet节点ip发往普通节点；也担任种子节点的角色，允许所有普通节点进行连接和区块同步。
+*/
+func (ms *MockSubnet) ReGenerateGovNodeInSeed(gov string) {
+	origin := ms.c.Seeds
+	for i, node := range ms.nodes {
+		if node.host == gov && node.nodeType == nodeTypeGov {
+			ms.c.Seeds = append(ms.c.Seeds, gov)
+			wn := ms.generateNode(node.host, node.nodeType, node.acc)
+			ms.nodes[i] = wn
+		}
+	}
+	ms.c.Seeds = origin
+}
+
+func (ms *MockSubnet) generateNode(host string, typ nodeType, acc *account.Account) *wrapNode {
+	if acc == nil {
+		acc = account.NewAccount("")
+	}
+	wn := &wrapNode{
+		cfg:      ms.c,
+		acc:      acc,
+		host:     host,
+		nodeType: typ,
+	}
+
+	// generate netserver
+	protocol := protocols.NewSubnetHandler(acc, ms.c.Seeds, ms.ledger)
+	resvFilter := protocol.GetReservedAddrFilter(len(ms.c.Rsvs) != 0)
+	wn.node = netserver.NewNetServerWithSubset(host, protocol, ms.net, ms.c.Rsvs, resvFilter)
+
+	return wn
 }
 
 func (ms *MockSubnet) CheckAll() error {
@@ -201,27 +256,50 @@ func (ms *MockSubnet) CheckDeletedGovNodes(delNodeList []*wrapNode) error {
 	return nil
 }
 
-func (ms *MockSubnet) generateNode(host string, typ nodeType, acc *account.Account) *wrapNode {
-	if acc == nil {
-		acc = account.NewAccount("")
+func (ms *MockSubnet) CheckGovSeed(gov string) error {
+	var wn *wrapNode
+	for _, node := range ms.nodes {
+		if node.host == gov {
+			wn = node
+		}
 	}
-	wn := &wrapNode{
-		cfg:      ms.c,
-		acc:      acc,
-		host:     host,
-		nodeType: typ,
+	if wn == nil {
+		return fmt.Errorf("govSeed node %s not exist", gov)
 	}
 
-	// generate netserver
-	protocol := protocols.NewSubnetHandler(acc, ms.c.Seeds, ms.ledger)
-	resvFilter := protocol.GetReservedAddrFilter(len(ms.c.Rsvs) != 0)
-	wn.node = netserver.NewNetServerWithSubset(host, protocol, ms.net, ms.c.Rsvs, resvFilter)
+	norms := make([]string, 0)
+	nbs := wn.node.GetNeighbors()
+	for _, nb := range nbs {
+		addr := nb.GetAddr()
+		if wn.isNormNodes(addr) {
+			norms = append(norms, addr)
+		}
+	}
 
-	ms.nodes = append(ms.nodes, wn)
-	return wn
+	if len(norms) == 0 {
+		return fmt.Errorf("govSeed node %s has no normal node as neighbor", gov)
+	}
+
+	for _, norm := range norms {
+		for _, node := range ms.nodes {
+			if node.host == norm {
+				mems := len(node.getSubnetMemberInfo())
+				if mems > 0 {
+					return fmt.Errorf("govSeed node %s, normal neighbor %s has %d subnet members",
+						gov, norm, mems)
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
+//////////////////////////////////////////////////////
+//
 // wrapNode
+//
+//////////////////////////////////////////////////////
 type wrapNode struct {
 	cfg      *MockSubnetConfig
 	node     *netserver.NetServer

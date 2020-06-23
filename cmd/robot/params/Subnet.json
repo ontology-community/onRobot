@@ -20,5 +20,7 @@
 
     ]
   },
-  "Dispatch": 90
+  "Dispatch": 10,
+  "SubnetMaxInactiveTime": 600,
+  "SubnetRefreshDuration": 1
 }

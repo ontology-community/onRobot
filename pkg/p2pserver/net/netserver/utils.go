@@ -139,17 +139,3 @@ func (this *NetServer) IsClosed() bool {
 	}
 	return false
 }
-
-func getReservePeers(protocol p2p.Protocol, conf *config.P2PNodeConfig) p2p.AddressFilter {
-	var rsv []string
-	if conf.ReservedPeersOnly && conf.ReservedCfg != nil {
-		rsv = conf.ReservedCfg.ReservedPeers
-	}
-	if rsv == nil {
-		return nil
-	}
-	staticFilter := connect_controller.NewStaticReserveFilter(rsv)
-	reserveAddrFilter := protocol.GetReservedAddrFilter(len(rsv) != 0)
-	reservedPeers := p2p.CombineAddrFilter(staticFilter, reserveAddrFilter)
-	return reservedPeers
-}

@@ -289,7 +289,7 @@ func (this *NetServer) startNetAccept(listener net.Listener) {
 
 		go func() {
 			if err := this.handleClientConnection(conn); err != nil {
-				log.Infof("[p2p] client connect error: %s", err)
+				log.Debugf("[p2p] client connect error: %s", err)
 				_ = conn.Close()
 			}
 		}()

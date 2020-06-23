@@ -51,4 +51,5 @@ func init() {
 	core.OntTool.RegMethod("subnet", Subnet)
 	core.OntTool.RegMethod("subnetAddMember", SubnetAddMember)
 	core.OntTool.RegMethod("subnetDelMember", SubnetDelMember)
+	core.OntTool.RegMethod("subnetGovInSeed", SubnetGovInSeed)
 }

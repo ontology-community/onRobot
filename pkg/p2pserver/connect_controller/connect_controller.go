@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -150,14 +151,18 @@ func (self *ConnectController) removeConnecting(addr string) {
 	self.connecting.Remove(addr)
 }
 
+// todo(fuk): delete after test
 func (self *ConnectController) checkReservedPeers(remoteAddr string) error {
 	if self.ReservedPeers == nil {
 		return nil
 	}
+	if strings.Contains(self.peerInfo.Addr, "127.0.0.2") &&
+		strings.Contains(remoteAddr, "127.0.0.2") && self.ReservedPeers.Contains(remoteAddr) == false {
+		log.Debugf("----")
+	}
 	if self.ReservedPeers.Contains(remoteAddr) {
 		return nil
 	}
-
 	return fmt.Errorf("local %s, the remote addr: %s not in reserved list", self.peerInfo.Addr, remoteAddr)
 }
 

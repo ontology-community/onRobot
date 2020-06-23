@@ -844,17 +844,19 @@ func Neighbor() bool {
 
 // 总共10个节点，最开始起10个节点，然后动态增加/删除1个节点
 func Subnet() bool {
-
-	// configuration
 	var params struct {
-		Subnet   *MockSubnetConfig
-		Dispatch int
+		Subnet                *MockSubnetConfig
+		SubnetMaxInactiveTime int
+		SubnetRefreshDuration int
+		Dispatch              int
 	}
 	if err := files.LoadParams(conf.ParamsFileDir, "Subnet.json", &params); err != nil {
 		log.Error(err)
 		return false
 	}
 	pr.SetDifficulty(1)
+	subnet.MaxInactiveTime = time.Duration(params.SubnetMaxInactiveTime) * time.Second
+	subnet.RefreshDuration = time.Duration(params.SubnetRefreshDuration) * time.Second
 
 	// initial subnet
 	ms, err := NewMockSubnet(params.Subnet)
@@ -915,14 +917,14 @@ func SubnetAddMember() bool {
 
 	// check result
 	if err := ms.CheckAll(); err != nil {
-		log.Error(err)
+		log.Errorf("subnet after add member % second, err: %s", params.DispatchAfterAddGovNode, err)
 		return false
 	}
+	log.Infof("subnet after add member % second", params.DispatchAfterAddGovNode)
 	return true
 }
 
 func SubnetDelMember() bool {
-	// configuration
 	var params struct {
 		Subnet                   *MockSubnetConfig
 		DelList                  []string
@@ -938,6 +940,7 @@ func SubnetDelMember() bool {
 	for _, src := range params.DelList {
 		if !params.Subnet.IsGovNode(src) {
 			log.Errorf("config invalid, node %s is not gov node", src)
+			return false
 		}
 	}
 	pr.SetDifficulty(1)
@@ -975,6 +978,48 @@ func SubnetDelMember() bool {
 		return false
 	}
 
+	return true
+}
+
+// 一个节点既是共识节点又是种子节点的情况下，邻接表里应该允许普通同步节点连接，但是normal neighbor中subnet应该是空的
+func SubnetGovInSeed() bool {
+	var params struct {
+		Subnet                *MockSubnetConfig
+		GovInSeed             string
+		SubnetMaxInactiveTime int
+		SubnetRefreshDuration int
+		Dispatch              int
+	}
+	if err := files.LoadParams(conf.ParamsFileDir, "SubnetGovInSeed.json", &params); err != nil {
+		log.Error(err)
+		return false
+	}
+	pr.SetDifficulty(1)
+	//subnet.MaxInactiveTime = time.Duration(params.SubnetMaxInactiveTime) * time.Second
+	//subnet.RefreshDuration = time.Duration(params.SubnetRefreshDuration) * time.Second
+
+	// check params
+	if !params.Subnet.IsGovNode(params.GovInSeed) || params.Subnet.IsSeedNode(params.GovInSeed) {
+		log.Error("params invalid, GovInSeed node should in govList and not in seedList")
+		return false
+	}
+
+	ms, err := NewMockSubnet(params.Subnet)
+	if err != nil {
+		log.Error(err)
+		return false
+	}
+	ms.ReGenerateGovNodeInSeed(params.GovInSeed)
+
+	// run
+	ms.StartAll()
+	dispatch(params.Dispatch)
+
+	// check result
+	if err := ms.CheckGovSeed(params.GovInSeed); err != nil {
+		log.Error(err)
+		return false
+	}
 	return true
 }
 

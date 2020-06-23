@@ -19,6 +19,7 @@
 package subnet
 
 import (
+	"encoding/json"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -355,10 +356,10 @@ func (self *SubNet) maintainLoop(net p2p.P2P) {
 		self.cleanInactiveGovNode()
 
 		if seedOrGov {
-			// self.sendMembersRequestToRandNodes(net)
-			// members := self.GetMembersInfo()
-			// buf, _ := json.Marshal(members)
-			// log.Infof("[subnet] current members: %s", string(buf))
+			self.sendMembersRequestToRandNodes(net)
+			members := self.GetMembersInfo()
+			buf, _ := json.Marshal(members)
+			log.Infof("[subnet] current members: %s", string(buf))
 		}
 
 		parker.ParkTimeout(RefreshDuration)
