@@ -36,14 +36,14 @@ func NewGovNodeMockResolver(db *MockLedger) *MockGovNodeResolver {
 }
 
 func (self *MockGovNodeResolver) IsGovNode(key string) bool {
-	if self.db == nil {
-		return false
-	}
-	return self.db.exist(key)
+	ok := self.db.exist(key)
+	return ok
 }
 
 func (self *MockGovNodeResolver) IsGovNodePubKey(key keypair.PublicKey) bool {
-	return self.db.exist(getKey(key))
+	pubKeyHex := getKey(key)
+	ok := self.db.exist(pubKeyHex)
+	return ok
 }
 
 type MockLedger struct {

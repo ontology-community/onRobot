@@ -20,18 +20,17 @@ package protocols
 
 import (
 	"fmt"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"time"
 
 	"github.com/ontio/ontology/account"
 	"github.com/ontio/ontology/common/config"
 	"github.com/ontio/ontology/common/log"
 
-	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
-	msgTypes "github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
-	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/bootstrap"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/discovery"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/reconnect"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/subnet"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/utils"
 )
@@ -52,6 +51,14 @@ func NewSubnetHandler(acct *account.Account, seedList []string, ledger *utils.Mo
 	}
 	subNet := subnet.NewSubNet(acct, seeds, gov)
 	return &SubnetHandler{seeds: seeds, subnet: subNet, acct: acct}
+}
+
+func (self *SubnetHandler) GetReservedAddrFilter(staticFilterEnabled bool) p2p.AddressFilter {
+	return self.subnet.GetReservedAddrFilter(staticFilterEnabled)
+}
+
+func (self *SubnetHandler) GetMaskAddrFilter() p2p.AddressFilter {
+	return self.subnet.GetMaskAddrFilter()
 }
 
 func (self *SubnetHandler) start(net p2p.P2P) {
@@ -89,39 +96,27 @@ func (self *SubnetHandler) HandleSystemMessage(net p2p.P2P, msg p2p.SystemMessag
 	}
 }
 
-func (self *SubnetHandler) HandlePeerMessage(ctx *p2p.Context, msg msgTypes.Message) {
+func (self *SubnetHandler) HandlePeerMessage(ctx *p2p.Context, msg types.Message) {
 	log.Trace("[p2p]receive message", ctx.Sender().GetAddr(), ctx.Sender().GetID())
 	switch m := msg.(type) {
-	case *msgTypes.AddrReq:
+	case *types.AddrReq:
 		self.discovery.AddrReqHandle(ctx)
-	case *msgTypes.FindNodeResp:
+	case *types.FindNodeResp:
 		self.discovery.FindNodeResponseHandle(ctx, m)
-	case *msgTypes.FindNodeReq:
+	case *types.FindNodeReq:
 		self.discovery.FindNodeHandle(ctx, m)
-	case *msgTypes.Addr:
+	case *types.Addr:
 		self.discovery.AddrHandle(ctx, m)
-	case *msgTypes.SubnetMembersRequest:
+	case *types.SubnetMembersRequest:
 		self.subnet.OnMembersRequest(ctx, m)
-	case *msgTypes.SubnetMembers:
+	case *types.SubnetMembers:
 		self.subnet.OnMembersResponse(ctx, m)
-	case *msgTypes.NotFound:
-		log.Debugf("[p2p]receive notFound message, hash is ", m.Hash)
+	case *types.NotFound:
+		log.Debug("[p2p]receive notFound message, hash is ", m.Hash)
 	default:
 		msgType := msg.CmdType()
-		log.Warnf("unknown message handler for the msg: ", msgType)
+		log.Warn("unknown message handler for the msg: ", msgType)
 	}
-}
-
-func (self *SubnetHandler) GetReservedAddrFilter(staticFilterEnabled bool) p2p.AddressFilter {
-	return self.subnet.GetReservedAddrFilter(staticFilterEnabled)
-}
-
-func (self *SubnetHandler) GetMaskAddrFilter() p2p.AddressFilter {
-	return self.subnet.GetMaskAddrFilter()
-}
-
-func (self *SubnetHandler) ReconnectService() *reconnect.ReconnectService {
-	return nil
 }
 
 func (self *SubnetHandler) GetSubnetMembersInfo() []common.SubnetMemberInfo {

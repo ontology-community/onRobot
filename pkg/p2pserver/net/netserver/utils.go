@@ -29,7 +29,7 @@ import (
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/connect_controller"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/mock"
-	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
 	st "github.com/ontology-community/onRobot/pkg/p2pserver/stat"
 )
@@ -90,23 +90,24 @@ func NewNetServerWithTxStat(protocol p2p.Protocol, conf *config.P2PNodeConfig, r
 	return s, nil
 }
 
-func NewNetServerWithSubset(listenAddr string, proto p2p.Protocol, nw mock.Network, reserves []string) *NetServer {
+func NewNetServerWithSubset(listenAddr string, proto p2p.Protocol, nw mock.Network, reservedPeers []string, reserveAddrFilter p2p.AddressFilter) *NetServer {
 	const maxConn = 100
 
-	kid := common.RandPeerKeyId()
-	info := peer.NewPeerInfo(kid.Id, common.PROTOCOL_VERSION, common.SERVICE_NODE, true,
+	keyId := common.RandPeerKeyId()
+	localInfo := peer.NewPeerInfo(keyId.Id, common.PROTOCOL_VERSION, common.SERVICE_NODE, true,
 		0, 0, 0, SoftVersion, "")
 
-	listener := nw.NewListenerWithAddr(kid.Id, listenAddr)
+	listener := nw.NewListenerWithAddr(keyId.Id, listenAddr)
 	host, port, _ := net.SplitHostPort(listenAddr)
-	dialer := nw.NewDialerWithHost(kid.Id, host)
-	info.Addr = listenAddr
+	dialer := nw.NewDialerWithHost(keyId.Id, host)
+	localInfo.Addr = listenAddr
 	iport, _ := strconv.Atoi(port)
-	info.Port = uint16(iport)
+	localInfo.Port = uint16(iport)
 	opt := connect_controller.NewConnCtrlOption().MaxInBoundPerIp(maxConn).
-		MaxInBound(maxConn).MaxOutBound(maxConn).WithDialer(dialer).ReservedOnly(reserves)
-
-	return NewCustomNetServer(kid, info, proto, listener, opt)
+		MaxInBound(maxConn).MaxOutBound(maxConn).WithDialer(dialer).ReservedOnly(reservedPeers)
+	opt.ReservedPeers = p2p.CombineAddrFilter(opt.ReservedPeers, reserveAddrFilter)
+	ns := NewCustomNetServer(keyId, localInfo, proto, listener, opt)
+	return ns
 }
 
 func (this *NetServer) ConnectAndReturnPeer(addr string) (*peer.Peer, error) {

@@ -34,7 +34,7 @@ import (
 	st "github.com/ontology-community/onRobot/pkg/p2pserver/stat"
 )
 
-var SoftVersion = "2.0.0"
+var SoftVersion = "v2.0.0"
 
 //NewNetServer return the net object in p2p
 func NewNetServer(protocol p2p.Protocol, conf *config.P2PNodeConfig, reserveAddrFilter p2p.AddressFilter) (*NetServer, error) {
@@ -224,10 +224,11 @@ func (this *NetServer) connect(addr string) error {
 	peerInfo, conn, err := this.connCtrl.Connect(addr)
 	if err != nil {
 		if err == connect_controller.ErrHandshakeSelf {
-			log.Info("[p2p] node host address detected: ", this.connCtrl.OwnAddress())
+			log.Infof("[p2p] node host address detected: %s", this.connCtrl.OwnAddress())
 			this.protocol.HandleSystemMessage(this, p2p.HostAddrDetected{ListenAddr: this.connCtrl.OwnAddress()})
 			return nil
 		}
+		log.Infof("[p2p] node host address %s detected failed: %v", this.connCtrl.OwnAddress(), err)
 		return err
 	}
 	remotePeer := peer.NewPeer(peerInfo, conn, this.NetChan)
@@ -288,7 +289,7 @@ func (this *NetServer) startNetAccept(listener net.Listener) {
 
 		go func() {
 			if err := this.handleClientConnection(conn); err != nil {
-				log.Debugf("[p2p] client connect error: %s", err)
+				log.Infof("[p2p] client connect error: %s", err)
 				_ = conn.Close()
 			}
 		}()

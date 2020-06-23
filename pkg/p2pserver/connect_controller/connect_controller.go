@@ -151,9 +151,10 @@ func (self *ConnectController) removeConnecting(addr string) {
 }
 
 func (self *ConnectController) checkReservedPeers(remoteAddr string) error {
-	if self.ReservedPeers == nil {
-		return nil
-	}
+	// todo
+	//if self.ReservedPeers == nil {
+	//	return nil
+	//}
 	if self.ReservedPeers.Contains(remoteAddr) {
 		return nil
 	}

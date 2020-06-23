@@ -864,7 +864,7 @@ func Subnet() bool {
 
 	// run
 	ms.StartAll()
-	dispatch(10)
+	dispatch(15)
 
 	// check result
 	if err := ms.CheckAll(); err != nil {
@@ -898,7 +898,7 @@ func SubnetAddMember() bool {
 		return false
 	}
 	ms.StartAll()
-	dispatch(10)
+	dispatch(50)
 
 	// add node
 	for _, addr := range params.AddList {

@@ -37,7 +37,9 @@ type combineAddrFilter struct {
 }
 
 func (self *combineAddrFilter) Contains(addr string) bool {
-	return self.filter1.Contains(addr) || self.filter2.Contains(addr)
+	c1 := self.filter1.Contains(addr)
+	c2 := self.filter2.Contains(addr)
+	return c1 || c2
 }
 
 type noneAddrFilter struct{}

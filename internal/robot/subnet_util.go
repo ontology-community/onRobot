@@ -21,6 +21,7 @@ package robot
 import (
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/ontio/ontology-crypto/keypair"
 	"github.com/ontio/ontology/account"
@@ -83,7 +84,7 @@ type MockSubnet struct {
 
 	nodes  []*wrapNode
 	rsv    []string
-	nw     mock.Network      // 共用同一个network
+	net    mock.Network      // 共用同一个network
 	ledger *utils.MockLedger // 共用同一个resolver 模拟从合约获取共识节点列表
 }
 
@@ -96,7 +97,7 @@ func NewMockSubnet(c *MockSubnetConfig) (*MockSubnet, error) {
 	ms := &MockSubnet{
 		c:     c,
 		nodes: make([]*wrapNode, 0, T),
-		nw:    mock.NewNetwork(),
+		net:   mock.NewNetwork(),
 		rsv:   c.Rsvs,
 	}
 
@@ -120,7 +121,13 @@ func NewMockSubnet(c *MockSubnetConfig) (*MockSubnet, error) {
 }
 
 func (ms *MockSubnet) StartAll() {
-	for _, node := range ms.nodes {
+	seeds := ms.nodes[:len(ms.c.Seeds)]
+	others := ms.nodes[len(ms.c.Seeds):]
+	for _, node := range seeds {
+		go node.node.Start()
+	}
+	time.Sleep(3 * time.Second)
+	for _, node := range others {
 		go node.node.Start()
 	}
 }
@@ -209,7 +216,8 @@ func (ms *MockSubnet) generateNode(host string, typ nodeType, acc *account.Accou
 
 	// generate netserver
 	protocol := protocols.NewSubnetHandler(acc, ms.c.Seeds, ms.ledger)
-	wn.node = netserver.NewNetServerWithSubset(host, protocol, ms.nw, ms.rsv)
+	resvFilter := protocol.GetReservedAddrFilter(len(ms.rsv) != 0)
+	wn.node = netserver.NewNetServerWithSubset(host, protocol, ms.net, ms.rsv, resvFilter)
 
 	ms.nodes = append(ms.nodes, wn)
 	return wn
@@ -249,7 +257,7 @@ func (wn *wrapNode) checkMemberInfo() error {
 
 	// 4. check gov member length
 	if len(memList) != len(wn.c.Govs) {
-		return fmt.Errorf("gov length %d != mems lenth %d", len(memList), len(wn.c.Govs))
+		return fmt.Errorf("gov length %d != mems lenth %d", len(wn.c.Govs), len(memList))
 	}
 
 	return nil
