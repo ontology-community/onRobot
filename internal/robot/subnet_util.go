@@ -162,6 +162,7 @@ func (ms *MockSubnet) AddGovNode(addr string) (*wrapNode, error) {
 	return wn, nil
 }
 
+// 删除共识节点但是其本身并不关停，而是变成普通同步节点
 func (ms *MockSubnet) DelGovNode(addr string) (wn *wrapNode, err error) {
 	var acc keypair.PublicKey
 	for _, node := range ms.nodes {
@@ -366,20 +367,16 @@ func (wn *wrapNode) checkNeighborCount(L int) error {
 	switch wn.nodeType {
 	case nodeTypeSeed:
 		num = S + G + N - 1
-		if L != num {
-			return fmt.Errorf("seed node neighbor count(%d) should be %d", L, num)
-		}
 	case nodeTypeGov:
 		num = S + G - 1
-		if L != num {
-			return fmt.Errorf("gov node neighbor count(%d) should be %d", L, num)
-		}
 	case nodeTypeNorm:
-		num := S + N - 1
-		if L != num {
-			return fmt.Errorf("norm node neighbor count(%d) shoud be %d", L, num)
-		}
+		num = S + N - 1
 	}
+
+	if L != num {
+		return fmt.Errorf("%s node neighbor count(%d) shoud be %d", wn.typeName(), L, num)
+	}
+
 	return nil
 }
 

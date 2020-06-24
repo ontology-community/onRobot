@@ -906,7 +906,7 @@ func SubnetAddMember() bool {
 
 	// run to stable state
 	if err := ms.CheckAll(); err != nil {
-		log.Errorf("subnet before add member, err: %s",err)
+		log.Errorf("subnet before add member, err: %s", err)
 		return false
 	}
 
@@ -1028,59 +1028,5 @@ func SubnetGovIsSeed() bool {
 	}
 	return true
 }
-
-/*
-func TestSubnetAllGovAreSeed(t *testing.T) {
-	subnet.RefreshDuration = time.Millisecond * 1000
-	log.Info("test subnet start")
-	//topo
-	/**
-		normal —————— normal
-		  \           /
-		   \         /
-		    \      /
-	          gov
-*/
-//SG, N := 4, 2
-//T := N + SG
-//acct := make([]*account.Account, 0, N)
-//for i := 0; i < T; i++ {
-//acct = append(acct, account.NewAccount(""))
-//}
-//var gov []string
-//var seedList []string
-//for i := 0; i < SG; i++ {
-//gov = append(gov, vconfig.PubkeyID(acct[i].PubKey()))
-//seedList = append(seedList, fmt.Sprintf("127.0.0.%d:%d", i, i))
-//}
-//
-//net := NewNetwork()
-//var nodes []*netserver.NetServer
-//for i := 0; i < SG; i++ {
-//seedNode := NewSubnetNode(acct[0], seedList[i], seedList, gov, net, nil, "seedgov")
-//go seedNode.Start()
-//nodes = append(nodes, seedNode)
-//}
-//
-//for i := SG; i < T; i++ {
-//node := NewSubnetNode(acct[i], fmt.Sprintf("127.0.0.%d:%d", i, i), seedList, gov, net, nil, "norm")
-//go node.Start()
-//nodes = append(nodes, node)
-//}
-//
-//for i := 0; i < T; i++ {
-//for j := i; j < T; j++ {
-//net.AllowConnect(nodes[i].GetHostInfo().Id, nodes[j].GetHostInfo().Id)
-//}
-//}
-//
-//time.Sleep(time.Second * 10)
-//for i := 0; i < SG; i++ {
-//assert.Equal(t, len(getSubnetMemberInfo(nodes[i].Protocol())), SG, i)
-//}
-//for i := 0; i < T; i++ {
-//assert.Equal(t, uint32(T)-1, nodes[i].GetConnectionCnt(), i)
-//}
-//}
 
 // todo dns解析
