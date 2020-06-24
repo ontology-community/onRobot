@@ -17,7 +17,7 @@
       "127.0.0.31:20336"
     ]
   },
-  "Dispatch": 10,
   "SubnetMaxInactiveTime": 600,
-  "SubnetRefreshDuration": 1
+  "SubnetRefreshDuration": 1,
+  "Dispatch": 15
 }

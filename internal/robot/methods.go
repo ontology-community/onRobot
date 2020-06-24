@@ -842,7 +842,7 @@ func Neighbor() bool {
 	}
 }
 
-// 总共10个节点，最开始起10个节点，然后动态增加/删除1个节点
+// subnet测试: 达到稳态后，检查其subnet member info&neighbor list
 func Subnet() bool {
 	var params struct {
 		Subnet                *MockSubnetConfig
@@ -877,6 +877,7 @@ func Subnet() bool {
 	return true
 }
 
+// 添加共识节点: 达到稳态后，添加共识节点，一段时间后检查其subnet member info&neighbor list
 func SubnetAddMember() bool {
 	// configuration
 	var params struct {
@@ -934,6 +935,7 @@ func SubnetAddMember() bool {
 	return true
 }
 
+// 删除共识节点：删除共识节点将其类型该为norm，从subnet.govs移除并添加到norms
 func SubnetDelMember() bool {
 	var params struct {
 		Subnet                   *MockSubnetConfig
@@ -1023,6 +1025,42 @@ func SubnetGovIsSeed() bool {
 
 	// check result
 	if err := ms.CheckGovSeed(params.GovInSeed); err != nil {
+		log.Error(err)
+		return false
+	}
+	return true
+}
+
+func SubnetReserve() bool {
+	var params struct {
+		Subnet                *MockSubnetConfig
+		GovInSeed             string
+		Rsvs                  ReserveList
+		SubnetMaxInactiveTime int
+		SubnetRefreshDuration int
+		Dispatch              int
+	}
+	if err := files.LoadParams(conf.ParamsFileDir, "SubnetReserve.json", &params); err != nil {
+		log.Error(err)
+		return false
+	}
+	pr.SetDifficulty(1)
+	pr.SetSubnetRefreshDuration(params.SubnetRefreshDuration)
+	pr.SetSubnetMaxInactiveDuration(params.SubnetMaxInactiveTime)
+
+	// initial subnet
+	ms, err := NewMockSubnetWithReserves(params.Subnet, params.Rsvs)
+	if err != nil {
+		log.Error(err)
+		return false
+	}
+
+	// run
+	ms.StartAll()
+	dispatch(params.Dispatch)
+
+	// check result
+	if err := ms.CheckReserve(); err != nil {
 		log.Error(err)
 		return false
 	}

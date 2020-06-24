@@ -69,8 +69,17 @@ func (this *OntologyTool) Start(methodsList []string) {
 func (this *OntologyTool) runMethodList(methodsList []string) {
 	this.onStart()
 	defer this.onFinish(methodsList)
+
+	var rest = func(index int) {
+		n := len(methodsList)
+		if n > 1 && index < n - 1 {
+			time.Sleep(5 * time.Second)
+		}
+	}
+
 	for i, method := range methodsList {
 		this.runMethod(i+1, method)
+		rest(i)
 	}
 }
 

@@ -363,7 +363,7 @@ func (self *SubNet) maintainLoop(net p2p.P2P) {
 			self.sendMembersRequestToRandNodes(net)
 			members := self.GetMembersInfo()
 			buf, _ := json.Marshal(members)
-			log.Infof("[subnet] current members: %s", string(buf))
+			log.Debugf("[subnet] current members: %s", string(buf))
 		}
 
 		parker.ParkTimeout(RefreshDuration)

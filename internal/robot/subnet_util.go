@@ -42,8 +42,46 @@ const (
 	nodeTypeNorm
 )
 
+type Reserve struct {
+	Host string
+	Rsv  []string
+	Mask []string
+}
+
+type ReserveList []*Reserve
+
+func (r ReserveList) GetRsv(addr string) []string {
+	if r == nil {
+		return nil
+	}
+
+	for _, rsv := range r {
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			continue
+		}
+		if rsv.Host == host {
+			return rsv.Rsv
+		}
+	}
+	return nil
+}
+
+func (r ReserveList) GetMask(addr string) []string {
+	for _, rsv := range r {
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			continue
+		}
+		if rsv.Host == host {
+			return rsv.Mask
+		}
+	}
+	return nil
+}
+
 type MockSubnetConfig struct {
-	Seeds, Govs, Norms, Rsvs []string
+	Seeds, Govs, Norms []string
 }
 
 func (c *MockSubnetConfig) getLength() (S, G, N, T int) {
@@ -92,6 +130,21 @@ func (c *MockSubnetConfig) IsGovNode(addr string) bool {
 	return false
 }
 
+func (c *MockSubnetConfig) CheckRsvs(rsvs ReserveList) error {
+	nodes := c.combineNodes()
+	for _, c := range rsvs {
+		if !nodeInList(c.Host, nodes) {
+			return fmt.Errorf("host %s not in subnet config", c.Host)
+		}
+		for _, rsv := range c.Rsv {
+			if !nodeInList(rsv, nodes) {
+				return fmt.Errorf("rsv %s not in subnet config", rsv)
+			}
+		}
+	}
+	return nil
+}
+
 type MockSubnet struct {
 	c *MockSubnetConfig
 
@@ -101,6 +154,14 @@ type MockSubnet struct {
 }
 
 func NewMockSubnet(c *MockSubnetConfig) (*MockSubnet, error) {
+	return NewCustomMockSubnet(c, nil)
+}
+
+func NewMockSubnetWithReserves(c *MockSubnetConfig, rsvs ReserveList) (*MockSubnet, error) {
+	return NewCustomMockSubnet(c, rsvs)
+}
+
+func NewCustomMockSubnet(c *MockSubnetConfig, rsvs ReserveList) (*MockSubnet, error) {
 	if err := c.checkDumpIps(); err != nil {
 		return nil, err
 	}
@@ -112,25 +173,27 @@ func NewMockSubnet(c *MockSubnetConfig) (*MockSubnet, error) {
 		net:   mock.NewNetwork(),
 	}
 
-	govPubKeys, govAccounts := generateMultiPubkeys(G)
+	govPubKeys, gov := generateMultiPubkeys(G)
 	ms.ledger = utils.NewMockLedger()
 	for _, kp := range govPubKeys {
 		ms.ledger.AddGovNode(kp)
 	}
 
 	for _, addr := range c.Seeds {
-		wn := ms.generateNode(addr, nodeTypeSeed, nil)
+		rsv := rsvs.GetRsv(addr)
+		wn := ms.generateNode(addr, nodeTypeSeed, nil, rsv)
 		ms.nodes = append(ms.nodes, wn)
 	}
 	for i, addr := range c.Govs {
-		wn := ms.generateNode(addr, nodeTypeGov, govAccounts[i])
+		rsv := rsvs.GetRsv(addr)
+		wn := ms.generateNode(addr, nodeTypeGov, gov[i], rsv)
 		ms.nodes = append(ms.nodes, wn)
 	}
 	for _, addr := range c.Norms {
-		wn := ms.generateNode(addr, nodeTypeNorm, nil)
+		rsv := rsvs.GetRsv(addr)
+		wn := ms.generateNode(addr, nodeTypeNorm, nil, rsv)
 		ms.nodes = append(ms.nodes, wn)
 	}
-
 	return ms, nil
 }
 
@@ -157,7 +220,7 @@ func (ms *MockSubnet) AddGovNode(addr string) (*wrapNode, error) {
 
 	pubkey, acc := generateSinglePubkey()
 	ms.ledger.AddGovNode(pubkey)
-	wn := ms.generateNode(addr, nodeTypeGov, acc)
+	wn := ms.generateNode(addr, nodeTypeGov, acc, nil)
 	ms.nodes = append(ms.nodes, wn)
 	return wn, nil
 }
@@ -198,14 +261,14 @@ func (ms *MockSubnet) ReGenerateGovNodeInSeed(gov string) {
 	for i, node := range ms.nodes {
 		if node.host == gov && node.nodeType == nodeTypeGov {
 			ms.c.Seeds = append(ms.c.Seeds, gov)
-			wn := ms.generateNode(node.host, node.nodeType, node.acc)
+			wn := ms.generateNode(node.host, node.nodeType, node.acc, nil)
 			ms.nodes[i] = wn
 		}
 	}
 	ms.c.Seeds = origin
 }
 
-func (ms *MockSubnet) generateNode(host string, typ nodeType, acc *account.Account) *wrapNode {
+func (ms *MockSubnet) generateNode(host string, typ nodeType, acc *account.Account, rsv []string) *wrapNode {
 	if acc == nil {
 		acc = account.NewAccount("")
 	}
@@ -218,21 +281,21 @@ func (ms *MockSubnet) generateNode(host string, typ nodeType, acc *account.Accou
 
 	// generate netserver
 	protocol := protocols.NewSubnetHandler(acc, ms.c.Seeds, ms.ledger)
-	resvFilter := protocol.GetReservedAddrFilter(len(ms.c.Rsvs) != 0)
-	wn.node = netserver.NewNetServerWithSubset(host, protocol, ms.net, ms.c.Rsvs, resvFilter)
+	resvFilter := protocol.GetReservedAddrFilter(len(rsv) != 0)
+	wn.node = netserver.NewNetServerWithSubset(host, protocol, ms.net, rsv, resvFilter)
 
 	return wn
 }
 
 func (ms *MockSubnet) CheckAll() error {
-	for _, node := range ms.nodes {
-		log.Infof("===============================[check %s node %s]=================================",
-			node.typeName(), node.host)
+	for _, wn := range ms.nodes {
+		log.Infof("===============================[check %s wn %s]=================================",
+			wn.typeName(), wn.host)
 
-		if err := node.checkMemberInfo(); err != nil {
+		if err := wn.checkMemberInfo(); err != nil {
 			return err
 		}
-		if err := node.checkNeighbors(); err != nil {
+		if err := wn.checkNeighbors(); err != nil {
 			return err
 		}
 	}
@@ -276,6 +339,22 @@ func (ms *MockSubnet) CheckGovSeed(gov string) error {
 		}
 	}
 
+	return nil
+}
+
+func (ms *MockSubnet) CheckReserve() error {
+	for _, wn := range ms.nodes {
+		log.Infof("===============================[check %s node %s]=================================",
+			wn.typeName(), wn.host)
+
+		for _, member := range wn.getSubnetMemberInfo() {
+			log.Infof("local %s, subnet members %s", wn.host, member.ListenAddr)
+		}
+
+		for _, nb := range wn.node.GetNeighbors() {
+			log.Infof("local %s, neighbor %s", wn.host, nb.GetAddr())
+		}
+	}
 	return nil
 }
 
