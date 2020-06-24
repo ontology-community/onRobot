@@ -24,8 +24,8 @@
     "127.0.0.20:20336",
     "127.0.0.21:20336"
   ],
-  "SubnetMaxInactiveTime": 10,
+  "SubnetMaxInactiveTime": 1,
   "SubnetRefreshDuration": 1,
   "DispatchBeforeDelGovNode": 10,
-  "DispatchAfterDelGovNode": 30
+  "DispatchAfterDelGovNode": 15
 }

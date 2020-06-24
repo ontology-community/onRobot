@@ -164,14 +164,14 @@ func (ms *MockSubnet) AddGovNode(addr string) (*wrapNode, error) {
 
 func (ms *MockSubnet) DelGovNode(addr string) (wn *wrapNode, err error) {
 	var acc keypair.PublicKey
-	for i, node := range ms.nodes {
+	for _, node := range ms.nodes {
 		if node.host == addr {
 			wn = node
 			if node.nodeType != nodeTypeGov {
 				err = fmt.Errorf("node %s is not gov node", addr)
 				return
 			}
-			ms.nodes = append(ms.nodes[:i], ms.nodes[i+1:]...)
+			node.nodeType = nodeTypeNorm
 			acc = node.acc.PublicKey
 		}
 	}
@@ -182,6 +182,7 @@ func (ms *MockSubnet) DelGovNode(addr string) (wn *wrapNode, err error) {
 	for i, gov := range ms.c.Govs {
 		if gov == addr {
 			ms.c.Govs = append(ms.c.Govs[:i], ms.c.Govs[i+1:]...)
+			ms.c.Norms = append(ms.c.Norms, addr)
 		}
 	}
 	ms.ledger.DelGovNode(acc)
@@ -235,23 +236,6 @@ func (ms *MockSubnet) CheckAll() error {
 		}
 	}
 	log.Info("-----------------------------[end check]----------------------------------")
-	return nil
-}
-
-func (ms *MockSubnet) CheckDeletedGovNodes(delNodeList []*wrapNode) error {
-	for _, node := range delNodeList {
-		log.Infof("===============================[check del %s node %s]=================================",
-			node.typeName(), node.host)
-
-		node.nodeType = nodeTypeNorm
-		if err := node.checkMemberInfo(); err != nil {
-			return err
-		}
-		if err := node.checkNeighbors(); err != nil {
-			return err
-		}
-		log.Info("-----------------------------[end check del cov node]----------------------------------")
-	}
 	return nil
 }
 

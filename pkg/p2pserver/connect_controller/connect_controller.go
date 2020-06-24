@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -151,14 +150,9 @@ func (self *ConnectController) removeConnecting(addr string) {
 	self.connecting.Remove(addr)
 }
 
-// todo(fuk): delete after test
 func (self *ConnectController) checkReservedPeers(remoteAddr string) error {
 	if self.ReservedPeers == nil {
 		return nil
-	}
-	if strings.Contains(self.peerInfo.Addr, "127.0.0.2") &&
-		strings.Contains(remoteAddr, "127.0.0.2") && self.ReservedPeers.Contains(remoteAddr) == false {
-		log.Debugf("----")
 	}
 	if self.ReservedPeers.Contains(remoteAddr) {
 		return nil
@@ -201,7 +195,7 @@ func (self *ConnectController) AcceptConnect(conn net.Conn) (*peer.PeerInfo, net
 
 	wrapped := self.savePeer(conn, peerInfo, INBOUND_INDEX)
 
-	log.Infof("inbound peer %s connected, %s", conn.RemoteAddr().String(), peerInfo)
+	log.Infof("%s inbound peer %s connected, %s", conn.LocalAddr().String(), conn.RemoteAddr().String(), peerInfo)
 	return peerInfo, wrapped, nil
 }
 
@@ -236,7 +230,7 @@ func (self *ConnectController) Connect(addr string) (*peer.PeerInfo, net.Conn, e
 
 	wrapped := self.savePeer(conn, peerInfo, OUTBOUND_INDEX)
 
-	log.Infof("outbound peer %s connected. %s", conn.RemoteAddr().String(), peerInfo)
+	log.Infof("%s outbound peer %s connected. %s", conn.LocalAddr().String(), conn.RemoteAddr().String(), peerInfo)
 	return peerInfo, wrapped, nil
 }
 

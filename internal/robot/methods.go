@@ -19,7 +19,6 @@
 package robot
 
 import (
-	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/subnet"
 	"math"
 	"math/big"
 	"net"
@@ -30,6 +29,7 @@ import (
 
 	ontcm "github.com/ontio/ontology/common"
 	"github.com/ontio/ontology/common/log"
+
 	"github.com/ontology-community/onRobot/internal/robot/conf"
 	"github.com/ontology-community/onRobot/pkg/dao"
 	"github.com/ontology-community/onRobot/pkg/files"
@@ -38,6 +38,7 @@ import (
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
 	pr "github.com/ontology-community/onRobot/pkg/p2pserver/params"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/subnet"
 	"github.com/ontology-community/onRobot/pkg/sdk"
 )
 
@@ -973,16 +974,12 @@ func SubnetDelMember() bool {
 		log.Error(err)
 		return false
 	}
-	if err := ms.CheckDeletedGovNodes(delNodeList); err != nil {
-		log.Error(err)
-		return false
-	}
 
 	return true
 }
 
 // 一个节点既是共识节点又是种子节点的情况下，邻接表里应该允许普通同步节点连接，但是normal neighbor中subnet应该是空的
-func SubnetGovInSeed() bool {
+func SubnetGovIsSeed() bool {
 	var params struct {
 		Subnet                *MockSubnetConfig
 		GovInSeed             string
@@ -995,8 +992,8 @@ func SubnetGovInSeed() bool {
 		return false
 	}
 	pr.SetDifficulty(1)
-	//subnet.MaxInactiveTime = time.Duration(params.SubnetMaxInactiveTime) * time.Second
-	//subnet.RefreshDuration = time.Duration(params.SubnetRefreshDuration) * time.Second
+	subnet.MaxInactiveTime = time.Duration(params.SubnetMaxInactiveTime) * time.Second
+	subnet.RefreshDuration = time.Duration(params.SubnetRefreshDuration) * time.Second
 
 	// check params
 	if !params.Subnet.IsGovNode(params.GovInSeed) || params.Subnet.IsSeedNode(params.GovInSeed) {
@@ -1022,5 +1019,59 @@ func SubnetGovInSeed() bool {
 	}
 	return true
 }
+
+/*
+func TestSubnetAllGovAreSeed(t *testing.T) {
+	subnet.RefreshDuration = time.Millisecond * 1000
+	log.Info("test subnet start")
+	//topo
+	/**
+		normal —————— normal
+		  \           /
+		   \         /
+		    \      /
+	          gov
+*/
+//SG, N := 4, 2
+//T := N + SG
+//acct := make([]*account.Account, 0, N)
+//for i := 0; i < T; i++ {
+//acct = append(acct, account.NewAccount(""))
+//}
+//var gov []string
+//var seedList []string
+//for i := 0; i < SG; i++ {
+//gov = append(gov, vconfig.PubkeyID(acct[i].PubKey()))
+//seedList = append(seedList, fmt.Sprintf("127.0.0.%d:%d", i, i))
+//}
+//
+//net := NewNetwork()
+//var nodes []*netserver.NetServer
+//for i := 0; i < SG; i++ {
+//seedNode := NewSubnetNode(acct[0], seedList[i], seedList, gov, net, nil, "seedgov")
+//go seedNode.Start()
+//nodes = append(nodes, seedNode)
+//}
+//
+//for i := SG; i < T; i++ {
+//node := NewSubnetNode(acct[i], fmt.Sprintf("127.0.0.%d:%d", i, i), seedList, gov, net, nil, "norm")
+//go node.Start()
+//nodes = append(nodes, node)
+//}
+//
+//for i := 0; i < T; i++ {
+//for j := i; j < T; j++ {
+//net.AllowConnect(nodes[i].GetHostInfo().Id, nodes[j].GetHostInfo().Id)
+//}
+//}
+//
+//time.Sleep(time.Second * 10)
+//for i := 0; i < SG; i++ {
+//assert.Equal(t, len(getSubnetMemberInfo(nodes[i].Protocol())), SG, i)
+//}
+//for i := 0; i < T; i++ {
+//assert.Equal(t, uint32(T)-1, nodes[i].GetConnectionCnt(), i)
+//}
+//}
 
 // todo dns解析

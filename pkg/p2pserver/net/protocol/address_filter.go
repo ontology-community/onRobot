@@ -18,35 +18,26 @@
 
 package p2p
 
-import "sync"
-
 type AddressFilter interface {
 	// addr format : ip:port
 	Contains(addr string) bool
 }
 
 func CombineAddrFilter(filter1, filter2 AddressFilter) AddressFilter {
-	return &combineAddrFilter{filter1: filter1, filter2: filter2, mu: new(sync.Mutex)}
+	return &combineAddrFilter{filter1: filter1, filter2: filter2}
 }
 
 func NoneAddrFilter() AddressFilter {
 	return &noneAddrFilter{}
 }
 
-// todo(fuk): delete after test
 type combineAddrFilter struct {
-	mu      *sync.Mutex
 	filter1 AddressFilter
 	filter2 AddressFilter
 }
 
 func (self *combineAddrFilter) Contains(addr string) bool {
-	self.mu.Lock()
-	c1 := self.filter1.Contains(addr)
-	c2 := self.filter2.Contains(addr)
-	ret := c1 || c2
-	self.mu.Unlock()
-	return ret
+	return self.filter1.Contains(addr) || self.filter2.Contains(addr)
 }
 
 type noneAddrFilter struct{}

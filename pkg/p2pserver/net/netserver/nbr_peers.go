@@ -54,7 +54,7 @@ func (self *Conn) Close() error {
 	} else if n.session == self.session { // connection not replaced
 		delete(self.netServer.Np.List, self.id)
 		// need handle asynchronously since we hold Np.Lock
-		log.Infof("remove peer %s from net server", self.id.ToHexString())
+		log.Infof("%s remove peer %s from net server", self.LocalAddr().String(), self.RemoteAddr().String())
 		go self.netServer.notifyPeerDisconnected(n.Peer.Info)
 	}
 
