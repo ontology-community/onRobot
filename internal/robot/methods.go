@@ -38,7 +38,6 @@ import (
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
 	pr "github.com/ontology-community/onRobot/pkg/p2pserver/params"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/subnet"
 	"github.com/ontology-community/onRobot/pkg/sdk"
 )
 
@@ -856,8 +855,8 @@ func Subnet() bool {
 		return false
 	}
 	pr.SetDifficulty(1)
-	subnet.MaxInactiveTime = time.Duration(params.SubnetMaxInactiveTime) * time.Second
-	subnet.RefreshDuration = time.Duration(params.SubnetRefreshDuration) * time.Second
+	pr.SetSubnetRefreshDuration(params.SubnetRefreshDuration)
+	pr.SetSubnetMaxInactiveDuration(params.SubnetMaxInactiveTime)
 
 	// initial subnet
 	ms, err := NewMockSubnet(params.Subnet)
@@ -893,8 +892,8 @@ func SubnetAddMember() bool {
 		return false
 	}
 	pr.SetDifficulty(1)
-	subnet.MaxInactiveTime = time.Duration(params.SubnetMaxInactiveTime) * time.Second
-	subnet.RefreshDuration = time.Duration(params.SubnetRefreshDuration) * time.Second
+	pr.SetSubnetRefreshDuration(params.SubnetRefreshDuration)
+	pr.SetSubnetMaxInactiveDuration(params.SubnetMaxInactiveTime)
 
 	// initial subnet
 	ms, err := NewMockSubnet(params.Subnet)
@@ -904,6 +903,16 @@ func SubnetAddMember() bool {
 	}
 	ms.StartAll()
 	dispatch(params.DispatchBeforeAddGovNode)
+
+	// run to stable state
+	if err := ms.CheckAll(); err != nil {
+		log.Errorf("subnet before add member, err: %s",err)
+		return false
+	}
+
+	// reset subnet parameters
+	pr.RecoverSubnetMaxInactiveDuration()
+	pr.RecoverSubnetRefreshDuration()
 
 	// add node
 	for _, addr := range params.AddList {
@@ -918,10 +927,10 @@ func SubnetAddMember() bool {
 
 	// check result
 	if err := ms.CheckAll(); err != nil {
-		log.Errorf("subnet after add member % second, err: %s", params.DispatchAfterAddGovNode, err)
+		log.Errorf("subnet after add member %d second, err: %s", params.DispatchAfterAddGovNode, err)
 		return false
 	}
-	log.Infof("subnet after add member % second", params.DispatchAfterAddGovNode)
+	log.Infof("subnet after add member %d second", params.DispatchAfterAddGovNode)
 	return true
 }
 
@@ -945,8 +954,8 @@ func SubnetDelMember() bool {
 		}
 	}
 	pr.SetDifficulty(1)
-	subnet.MaxInactiveTime = time.Duration(params.SubnetMaxInactiveTime) * time.Second
-	subnet.RefreshDuration = time.Duration(params.SubnetRefreshDuration) * time.Second
+	pr.SetSubnetRefreshDuration(params.SubnetRefreshDuration)
+	pr.SetSubnetMaxInactiveDuration(params.SubnetMaxInactiveTime)
 
 	// initial subnet
 	ms, err := NewMockSubnet(params.Subnet)
@@ -992,8 +1001,8 @@ func SubnetGovIsSeed() bool {
 		return false
 	}
 	pr.SetDifficulty(1)
-	subnet.MaxInactiveTime = time.Duration(params.SubnetMaxInactiveTime) * time.Second
-	subnet.RefreshDuration = time.Duration(params.SubnetRefreshDuration) * time.Second
+	pr.SetSubnetRefreshDuration(params.SubnetRefreshDuration)
+	pr.SetSubnetMaxInactiveDuration(params.SubnetMaxInactiveTime)
 
 	// check params
 	if !params.Subnet.IsGovNode(params.GovInSeed) || params.Subnet.IsSeedNode(params.GovInSeed) {

@@ -20,6 +20,7 @@ package params
 
 import (
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/subnet"
 	"time"
 )
 
@@ -51,16 +52,18 @@ var (
 )
 
 var (
-	DefHandshakeStopLevel               uint8  = HandshakeNormal
-	DefHandshakeWrongMsg                       = false
-	DefHandshakeClientTimeout                  = time.Duration(0)
-	DefHandshakeServerTimeout                  = time.Duration(0)
-	DefHeartbeatBlockHeight             uint64 = 9442
-	DefHeartbeatInterruptAfterStartTime int64  = 0
-	DefHeartbeatInterruptPingLastTime   int64  = 0
-	DefHeartbeatInterruptPongLastTime   int64  = 0
-	DefEnableTxStat                     bool   = false
-	DefDifficulty                       int    = common.Difficulty
+	DefHandshakeStopLevel               uint8         = HandshakeNormal
+	DefHandshakeWrongMsg                              = false
+	DefHandshakeClientTimeout                         = time.Duration(0)
+	DefHandshakeServerTimeout                         = time.Duration(0)
+	DefHeartbeatBlockHeight             uint64        = 9442
+	DefHeartbeatInterruptAfterStartTime int64         = 0
+	DefHeartbeatInterruptPingLastTime   int64         = 0
+	DefHeartbeatInterruptPongLastTime   int64         = 0
+	DefEnableTxStat                     bool          = false
+	DefDifficulty                       int           = common.Difficulty
+	DefSubnetMaxInactiveTime            time.Duration = subnet.MaxInactiveTime
+	DefSubnetRefreshDuration            time.Duration = subnet.RefreshDuration
 )
 
 func InitializeTestParams() {
@@ -74,6 +77,8 @@ func InitializeTestParams() {
 	HeartbeatInterruptPongLastTime = DefHeartbeatInterruptPongLastTime
 	EnableTxStat = DefEnableTxStat
 	common.Difficulty = DefDifficulty
+	subnet.MaxInactiveTime = DefSubnetMaxInactiveTime
+	subnet.RefreshDuration = DefSubnetRefreshDuration
 }
 
 func Reset() {
@@ -122,4 +127,20 @@ func SetEnableTxStat() {
 
 func SetDifficulty(difficulty int) {
 	common.Difficulty = difficulty
+}
+
+func SetSubnetRefreshDuration(duration int) {
+	subnet.RefreshDuration = time.Second * time.Duration(duration)
+}
+
+func SetSubnetMaxInactiveDuration(duration int) {
+	subnet.MaxInactiveTime = time.Second * time.Duration(duration)
+}
+
+func RecoverSubnetRefreshDuration() {
+	subnet.RefreshDuration = DefSubnetRefreshDuration
+}
+
+func RecoverSubnetMaxInactiveDuration() {
+	subnet.MaxInactiveTime = DefSubnetMaxInactiveTime
 }
