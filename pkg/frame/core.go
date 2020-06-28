@@ -72,7 +72,7 @@ func (this *OntologyTool) runMethodList(methodsList []string) {
 
 	var rest = func(index int) {
 		n := len(methodsList)
-		if n > 1 && index < n - 1 {
+		if n > 1 && index < n-1 {
 			time.Sleep(5 * time.Second)
 		}
 	}

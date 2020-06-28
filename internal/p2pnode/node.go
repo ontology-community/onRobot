@@ -95,7 +95,7 @@ func initProtocol() p2p.Protocol {
 }
 
 func initP2PNode(txpoolSvr *proc.TXPoolServer, handler p2p.Protocol) (*p2pserver.P2PServer, error) {
-	p2p, err := p2pserver.NewStatServer(handler, conf.DefConfig.Net)
+	p2p, err := p2pserver.NewStatServer(handler, conf.DefConfig.Net, nil)
 	if err != nil {
 		return nil, err
 	}

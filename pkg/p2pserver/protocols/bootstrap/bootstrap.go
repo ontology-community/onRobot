@@ -73,9 +73,9 @@ func (self *BootstrapService) connectSeedService() {
 			connected := atomic.LoadUint32(&self.connected)
 			// todo(fuk): reset after test
 			if connected >= activeConnect {
-				t.Reset(time.Second * 1)//time.Duration(10*common.CONN_MONITOR))
+				t.Reset(time.Second * 1) //time.Duration(10*common.CONN_MONITOR))
 			} else {
-				t.Reset(time.Second * 1)//common.CONN_MONITOR)
+				t.Reset(time.Second * 1) //common.CONN_MONITOR)
 			}
 		case <-self.quit:
 			t.Stop()

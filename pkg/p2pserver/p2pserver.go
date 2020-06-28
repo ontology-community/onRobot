@@ -71,6 +71,19 @@ func NewServer(acct *account.Account) (*P2PServer, error) {
 	return p, nil
 }
 
+func NewStatServer(protocol p2p.Protocol, conf *config.P2PNodeConfig, reserveFilter p2p.AddressFilter) (*P2PServer, error) {
+	n, err := netserver.NewNetServerWithTxStat(protocol, conf, reserveFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	p := &P2PServer{
+		network: n,
+	}
+
+	return p, nil
+}
+
 //Start create all services
 func (self *P2PServer) Start() error {
 	return self.network.Start()
