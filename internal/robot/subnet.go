@@ -286,7 +286,7 @@ func (ms *MockSubnet) CheckAll() error {
 	return nil
 }
 
-func (ms *MockSubnet) CheckGovSeed(gov string) error {
+func (ms *MockSubnet) CheckGovIsSeed(gov string) error {
 	var wn *wrapNode
 	for _, node := range ms.nodes {
 		if node.host == gov {
@@ -297,12 +297,22 @@ func (ms *MockSubnet) CheckGovSeed(gov string) error {
 		return fmt.Errorf("govSeed node %s not exist", gov)
 	}
 
+	log.Infof("===============================[check %s node %s]=================================",
+		wn.typeName(), wn.host)
+
 	norms := make([]string, 0)
 	nbs := wn.node.GetNeighbors()
 	for _, nb := range nbs {
 		addr := nb.GetAddr()
 		if wn.isNormNodes(addr) {
 			norms = append(norms, addr)
+			log.Infof("local %s,norm neighbor %s", wn.host, nb.GetAddr())
+		} else if wn.isGovNodes(addr) {
+			log.Infof("local %s,gov neighbor %s", wn.host, nb.GetAddr())
+		} else if wn.isSeedNodes(addr) {
+			log.Infof("local %s,seed neighbor %s", wn.host, nb.GetAddr())
+		} else {
+			return fmt.Errorf("invalid neighbor type")
 		}
 	}
 
@@ -318,9 +328,12 @@ func (ms *MockSubnet) CheckGovSeed(gov string) error {
 					return fmt.Errorf("govSeed node %s, normal neighbor %s has %d subnet members",
 						gov, norm, mems)
 				}
+				log.Infof("norm neighbor %s, subnet member number %d", norm, mems)
 			}
 		}
 	}
+
+	log.Info("-----------------------------[end check]----------------------------------")
 
 	return nil
 }

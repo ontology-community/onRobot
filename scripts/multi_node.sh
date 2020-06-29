@@ -26,7 +26,7 @@ logdir="${name}log"
 echo "workspace ${workspace}, httpport ${httpPort}, nodeport ${nodePort}"
 
 nohup ./p2pnode -config=${workspace}/config.json \
--loglevel=1 \
+-loglevel=2 \
 -httpport=${httpPort} \
 -nodeport=${nodePort} > $name.log &
 

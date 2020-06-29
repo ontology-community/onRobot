@@ -1025,7 +1025,7 @@ func SubnetGovIsSeed() bool {
 	dispatch(params.Dispatch)
 
 	// check result
-	if err := ms.CheckGovSeed(params.GovInSeed); err != nil {
+	if err := ms.CheckGovIsSeed(params.GovInSeed); err != nil {
 		log.Error(err)
 		return false
 	}
