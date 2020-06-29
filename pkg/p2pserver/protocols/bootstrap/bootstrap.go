@@ -22,9 +22,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ontology-community/onRobot/pkg/p2pserver/message/msg_pack"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
+	msgpack "github.com/ontology-community/onRobot/pkg/p2pserver/message/msg_pack"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
+	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/peer"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/utils"
 )
@@ -71,11 +72,10 @@ func (self *BootstrapService) connectSeedService() {
 			self.connectSeeds()
 			t.Stop()
 			connected := atomic.LoadUint32(&self.connected)
-			// todo(fuk): reset after test
 			if connected >= activeConnect {
-				t.Reset(time.Second * 1) //time.Duration(10*common.CONN_MONITOR))
+				t.Reset(time.Second * 10 * common.CONN_MONITOR)
 			} else {
-				t.Reset(time.Second * 1) //common.CONN_MONITOR)
+				t.Reset(time.Second * common.CONN_MONITOR)
 			}
 		case <-self.quit:
 			t.Stop()

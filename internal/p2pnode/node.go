@@ -21,89 +21,41 @@ package p2pnode
 import (
 	"fmt"
 
-	"github.com/ontio/ontology/account"
-	"github.com/ontology-community/onRobot/pkg/dao"
-	"github.com/ontology-community/onRobot/pkg/sdk"
-
 	"github.com/ontio/ontology/common/log"
 	"github.com/ontio/ontology/events"
 	"github.com/ontology-community/onRobot/internal/p2pnode/conf"
+	"github.com/ontology-community/onRobot/pkg/dao"
 	"github.com/ontology-community/onRobot/pkg/p2pserver"
 	netreqactor "github.com/ontology-community/onRobot/pkg/p2pserver/actor/req"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/httpinfo"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/net/netserver"
-	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols"
 	"github.com/ontology-community/onRobot/pkg/txnpool"
-	"github.com/ontology-community/onRobot/pkg/txnpool/proc"
 )
 
-var (
-	acc *account.Account
-)
-
-func NewNode(walletpath, pwd string) {
+func NewNode() {
 	events.Init()
-	initMysql()
 
-	if err := initAccount(walletpath, pwd); err != nil {
-		log.Fatal(err)
-	}
+	dao.NewDao(conf.DefConfig.Mysql)
+	msghandler := protocols.NewTxCountHandler()
 
-	tp, err := initTxPool()
+	node, err := p2pserver.NewStatServer(msghandler, conf.DefConfig.Net)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
-	msghandler := initProtocol()
+	if err := node.Start(); err != nil {
+		panic(err)
+	}
 
-	node, err := initP2PNode(tp, msghandler)
+	txpoolSvr, err := txnpool.StartTxnPoolServer()
 	if err != nil {
-		log.Fatal(err)
+		panic(fmt.Sprintf("Init txpool error: %s", err))
 	}
+	netreqactor.SetTxnPoolPid(txpoolSvr.GetPID())
+	txpoolSvr.Net = node.GetNetwork()
 
 	ns := node.GetNetwork().(*netserver.NetServer)
 	httpinfo.RunTxInfoHttpServer(ns, conf.DefConfig.Net.HttpInfoPort)
-}
 
-func initAccount(walletpath, pwd string) error {
-	var err error
-	if acc, err = sdk.RecoverAccount(walletpath, pwd); err != nil {
-		return err
-	}
-	return nil
-}
-
-func initMysql() {
-	dao.NewDao(conf.DefConfig.Mysql)
-}
-
-func initTxPool() (*proc.TXPoolServer, error) {
-
-	txPoolServer, err := txnpool.StartTxnPoolServer()
-	if err != nil {
-		return nil, fmt.Errorf("Init txpool error: %s", err)
-	}
-
-	//hserver.SetTxPid(txPoolServer.GetPID())
-
-	log.Info("TxPool init success")
-	return txPoolServer, nil
-}
-
-func initProtocol() p2p.Protocol {
-	return protocols.NewTxCountHandler(acc)
-}
-
-func initP2PNode(txpoolSvr *proc.TXPoolServer, handler p2p.Protocol) (*p2pserver.P2PServer, error) {
-	p2p, err := p2pserver.NewStatServer(handler, conf.DefConfig.Net, nil)
-	if err != nil {
-		return nil, err
-	}
-	if err := p2p.Start(); err != nil {
-		return nil, fmt.Errorf("p2p service start error %s", err)
-	}
-	netreqactor.SetTxnPoolPid(txpoolSvr.GetPID())
-	txpoolSvr.Net = p2p.GetNetwork()
 	log.Info("P2P init success")
-	return p2p, nil
 }

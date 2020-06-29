@@ -23,9 +23,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ontology-community/onRobot/internal/robot/conf"
-
 	_ "github.com/ontology-community/onRobot/internal/robot"
+	"github.com/ontology-community/onRobot/internal/robot/conf"
 	core "github.com/ontology-community/onRobot/pkg/frame"
 )
 
@@ -43,7 +42,7 @@ func init() {
 	flag.StringVar(&TestCaseConfig, "params", "target/robot/params", "Test params")
 	flag.StringVar(&WalletConfig, "wallet", "target/robot/wallet.dat", "Wallet path")
 	flag.StringVar(&TransferWalletConfig, "transfer", "target/robot/transfer_wallet.dat", "Transfer wallet path")
-	flag.StringVar(&Methods, "t", "subnetReserve", "methods to run. use ',' to split methods")
+	flag.StringVar(&Methods, "t", "connect", "methods to run. use ',' to split methods")
 	flag.Parse()
 }
 

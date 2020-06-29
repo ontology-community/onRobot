@@ -20,22 +20,19 @@ package protocols
 
 import (
 	"fmt"
-	"github.com/ontio/ontology/account"
-	"github.com/ontio/ontology/common/config"
-	"github.com/ontio/ontology/common/log"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/utils"
 	"strconv"
 
-	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
-	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/subnet"
-
+	"github.com/ontio/ontology/common/config"
+	"github.com/ontio/ontology/common/log"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	msgTypes "github.com/ontology-community/onRobot/pkg/p2pserver/message/types"
+	p2p "github.com/ontology-community/onRobot/pkg/p2pserver/net/protocol"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/bootstrap"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/discovery"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/heatbeat"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/recent_peers"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/reconnect"
+	"github.com/ontology-community/onRobot/pkg/p2pserver/protocols/utils"
 )
 
 type TxCountHandler struct {
@@ -46,10 +43,9 @@ type TxCountHandler struct {
 	heatBeat                 *heatbeat.HeartBeat
 	bootstrap                *bootstrap.BootstrapService
 	persistRecentPeerService *recent_peers.PersistRecentPeerService
-	subnet                   *subnet.SubNet
 }
 
-func NewTxCountHandler(acc *account.Account) *TxCountHandler {
+func NewTxCountHandler() *TxCountHandler {
 	m := &TxCountHandler{}
 
 	seedsList := config.DefConfig.Genesis.SeedList
@@ -57,30 +53,23 @@ func NewTxCountHandler(acc *account.Account) *TxCountHandler {
 	if invalid != nil {
 		panic(fmt.Errorf("invalid seed list； %v", invalid))
 	}
-	gov := utils.NewGovNodeMockResolver(nil)
 
 	m.seeds = seeds
-	m.subnet = subnet.NewSubNet(acc, seeds, gov)
-
 	return m
 }
 
 func (self *TxCountHandler) start(net p2p.P2P) {
-
 	self.reconnect = reconnect.NewReconectService(net, nil)
-	maskFilter := self.subnet.GetMaskAddrFilter()
-	self.discovery = discovery.NewDiscovery(net, config.DefConfig.P2PNode.ReservedCfg.MaskPeers, maskFilter, 0)
+	self.discovery = discovery.NewDiscovery(net, config.DefConfig.P2PNode.ReservedCfg.MaskPeers, nil, 0)
 	self.bootstrap = bootstrap.NewBootstrapService(net, self.seeds)
-
-	// mark:
 	self.heatBeat = heatbeat.NewHeartBeat(net)
 	self.persistRecentPeerService = recent_peers.NewPersistRecentPeerService(net)
+
 	go self.persistRecentPeerService.Start()
 	go self.reconnect.Start()
 	go self.discovery.Start()
 	go self.heatBeat.Start()
 	go self.bootstrap.Start()
-	go self.subnet.Start(net)
 }
 
 func (self *TxCountHandler) stop() {
@@ -89,7 +78,6 @@ func (self *TxCountHandler) stop() {
 	self.persistRecentPeerService.Stop()
 	self.heatBeat.Stop()
 	self.bootstrap.Stop()
-	self.subnet.Stop()
 }
 
 func (self *TxCountHandler) HandleSystemMessage(net p2p.P2P, msg p2p.SystemMessage) {
@@ -108,8 +96,6 @@ func (self *TxCountHandler) HandleSystemMessage(net p2p.P2P, msg p2p.SystemMessa
 		self.persistRecentPeerService.DelNodeAddr(m.Info.Addr + strconv.Itoa(int(m.Info.Port)))
 	case p2p.NetworkStop:
 		self.stop()
-	case p2p.HostAddrDetected:
-		self.subnet.OnHostAddrDetected(m.ListenAddr)
 	}
 }
 
@@ -141,10 +127,6 @@ func (self *TxCountHandler) HandlePeerMessage(ctx *p2p.Context, msg msgTypes.Mes
 		DataReqHandle(ctx, m)
 	case *msgTypes.Inv:
 		InvHandle(ctx, m)
-	case *msgTypes.SubnetMembersRequest:
-		self.subnet.OnMembersRequest(ctx, m)
-	case *msgTypes.SubnetMembers:
-		self.subnet.OnMembersResponse(ctx, m)
 	case *msgTypes.NotFound:
 		log.Debugf("[p2p]receive notFound message, hash is ", m.Hash)
 	default:
@@ -158,5 +140,9 @@ func (self *TxCountHandler) HandlePeerMessage(ctx *p2p.Context, msg msgTypes.Mes
 }
 
 func (self *TxCountHandler) GetReservedAddrFilter(staticFilterEnable bool) p2p.AddressFilter {
-	return self.subnet.GetReservedAddrFilter(staticFilterEnable)
+	return nil
+}
+
+func (self *TxCountHandler) GetMaskAddrFilter() p2p.AddressFilter {
+	return nil
 }

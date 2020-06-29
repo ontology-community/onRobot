@@ -7,11 +7,10 @@ killall -9 p2pnode
 # prepare
 cd ${workspace}
 rm -rf *.log
-rm -rf log
+rm -rf *log
 rm -rf nohup.out
 rm -rf p2pnode
 rm -rf wallet.dat
-mkdir log
 
 cp ${workspace}/node/config.json config.json
 cp ${workspace}/node/node p2pnode
@@ -23,9 +22,11 @@ do
 name=p2pnode${idx}
 httpPort=`expr ${startHttpPort} + ${idx}`
 nodePort=`expr ${startNodePort} + ${idx}`
+logdir="${name}log"
 echo "workspace ${workspace}, httpport ${httpPort}, nodeport ${nodePort}"
 
 nohup ./p2pnode -config=${workspace}/config.json \
+-loglevel=1 \
 -httpport=${httpPort} \
 -nodeport=${nodePort} > $name.log &
 

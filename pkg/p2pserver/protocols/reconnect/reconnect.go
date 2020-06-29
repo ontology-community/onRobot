@@ -88,7 +88,7 @@ func (self *ReconnectService) OnAddPeer(p *peer.PeerInfo) {
 func (self *ReconnectService) OnDelPeer(p *peer.PeerInfo) {
 	nodeAddr := p.RemoteListenAddress()
 	maxCount := self.MaxRetryCount
-	if self.staticReserveFilter.Contains(nodeAddr) {
+	if self.staticReserveFilter != nil && self.staticReserveFilter.Contains(nodeAddr) {
 		maxCount = MaxRetryCountForReserveNode
 	}
 	self.Lock()

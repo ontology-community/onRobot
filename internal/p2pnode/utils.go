@@ -30,7 +30,7 @@ func GenerateNetServerWithContinuePort(protocol p2p.Protocol, port uint16) (ns *
 	var err error
 
 	conf.DefConfig.Net.NodePort = port
-	if ns, err = netserver.NewNetServer(protocol, conf.DefConfig.Net); err != nil {
+	if ns, err = netserver.NewNetServer(protocol, conf.DefConfig.Net, nil); err != nil {
 		log.Fatal("[NewNetServer] crashed, err %s", err)
 		return nil
 	}

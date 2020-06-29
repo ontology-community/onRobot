@@ -20,12 +20,12 @@ package robot
 
 import (
 	"fmt"
-	"github.com/ontio/ontology-crypto/keypair"
-	"github.com/ontio/ontology/account"
-	"github.com/ontio/ontology/common/log"
 	"net"
 	"time"
 
+	"github.com/ontio/ontology-crypto/keypair"
+	"github.com/ontio/ontology/account"
+	"github.com/ontio/ontology/common/log"
 	p2pcm "github.com/ontology-community/onRobot/pkg/p2pserver/common"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/mock"
 	"github.com/ontology-community/onRobot/pkg/p2pserver/net/netserver"
@@ -193,9 +193,6 @@ func (ms *MockSubnet) StartAll() {
 	for _, node := range others {
 		go node.node.Start()
 	}
-	//for _, node := range ms.nodes {
-	//	go node.node.Start()
-	//}
 }
 
 func (ms *MockSubnet) AddGovNode(addr string) (*wrapNode, error) {

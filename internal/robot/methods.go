@@ -729,7 +729,8 @@ func TxCount() bool {
 		log.Error(err)
 		return false
 	}
-	pr.SetDifficulty(1)
+	// notice: 如果这里重置了difficulty那么在node那边也需要set common.difficulty=1
+	//pr.SetDifficulty(1)
 
 	// new dao
 	dao.NewDao(params.Mysql)

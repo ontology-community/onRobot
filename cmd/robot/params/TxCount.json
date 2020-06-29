@@ -10,7 +10,7 @@
   "StatTicker": 10,
   "TxPerSec": 2,
   "TxPerStat": 10,
-  "MsgNumber": 7200,
+  "MsgNumber": 100,
   "StatAfterDuration": 60,
   "Mysql": {
     "Ip": "172.168.3.219",

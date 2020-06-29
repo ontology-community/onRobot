@@ -20,6 +20,8 @@ package main
 
 import (
 	"flag"
+
+	"github.com/ontio/ontology/common/log"
 	"github.com/ontology-community/onRobot/internal/p2pnode"
 	"github.com/ontology-community/onRobot/internal/p2pnode/conf"
 )
@@ -30,22 +32,23 @@ var (
 	httpPort,
 	nodePort uint
 
-	walletPath,
-	walletPwd string
+	loglevel int
+	logDir   string
 )
 
 func init() {
 	flag.StringVar(&Config, "config", "target/node/config.json", "Config of ontology-tool")
 	flag.UintVar(&httpPort, "httpport", 30001, "http info port")
 	flag.UintVar(&nodePort, "nodeport", 40001, "p2pnode port")
-	flag.StringVar(&walletPath, "wallet", "target/node/wallet.dat", "wallet path")
-	flag.StringVar(&walletPwd, "pwd", "123456", "wallet password")
+	flag.IntVar(&loglevel, "loglevel", 2, "loglevel [1: debug, 2: info]")
+	flag.StringVar(&logDir, "logdir", "target/node/log", "set log dir")
 	flag.Parse()
 }
 
 func main() {
+	log.InitLog(loglevel, log.Stdout)
 	if err := conf.DefConfig.Init(Config, nodePort, httpPort); err != nil {
 		panic(err)
 	}
-	p2pnode.NewNode(walletPath, walletPwd)
+	p2pnode.NewNode()
 }

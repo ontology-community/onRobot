@@ -94,19 +94,19 @@ func NewNetServerWithSubset(listenAddr string, proto p2p.Protocol, nw mock.Netwo
 	const maxConn = 100
 
 	keyId := common.RandPeerKeyId()
-	localInfo := peer.NewPeerInfo(keyId.Id, common.PROTOCOL_VERSION, common.SERVICE_NODE, true,
+	peerInfo := peer.NewPeerInfo(keyId.Id, common.PROTOCOL_VERSION, common.SERVICE_NODE, true,
 		0, 0, 0, SoftVersion, "")
 
 	listener := nw.NewListenerWithAddr(keyId.Id, listenAddr)
 	host, port, _ := net.SplitHostPort(listenAddr)
 	dialer := nw.NewDialerWithHost(keyId.Id, host)
-	localInfo.Addr = listenAddr
+	peerInfo.Addr = listenAddr
 	iport, _ := strconv.Atoi(port)
-	localInfo.Port = uint16(iport)
+	peerInfo.Port = uint16(iport)
 	opt := connect_controller.NewConnCtrlOption().MaxInBoundPerIp(maxConn).
 		MaxInBound(maxConn).MaxOutBound(maxConn).WithDialer(dialer).ReservedOnly(reservedPeers)
 	opt.ReservedPeers = p2p.CombineAddrFilter(opt.ReservedPeers, reserveAddrFilter)
-	ns := NewCustomNetServer(keyId, localInfo, proto, listener, opt)
+	ns := NewCustomNetServer(keyId, peerInfo, proto, listener, opt)
 	return ns
 }
 
