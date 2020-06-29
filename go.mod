@@ -10,6 +10,7 @@ require (
 	github.com/ontio/ontology-crypto v1.0.9
 	github.com/ontio/ontology-eventbus v0.9.1
 	github.com/scylladb/go-set v1.0.2
+	github.com/stretchr/testify v1.4.0
 )
 
 replace github.com/ontio/ontology v0.0.0-20200622110714-6712611a8631 => ../../laizy/ontology

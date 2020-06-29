@@ -1031,11 +1031,17 @@ func SubnetGovIsSeed() bool {
 	return true
 }
 
+// 共识节点以及普通节点添加reserve节点
+// 该测试变化情况较多，这里我们仅通过观察的方式来判断是否正确:
+// 因为seed节点添加reserve没有意义，这里我们尝试在gov&norm节点添加reserve节点列表
+// gov节点reserve添加norm节点会使得gov&norm节点的neighborList出现对方
+// norm节点中添加gov节点，而对方不添加gov，会导致该节点连不上任何节点
 func SubnetReserve() bool {
 	var params struct {
 		Subnet                *MockSubnetConfig
 		GovInSeed             string
-		Rsvs                  ReserveList
+		GovRsv                *Reserve
+		NormRsv               *Reserve
 		SubnetMaxInactiveTime int
 		SubnetRefreshDuration int
 		Dispatch              int
@@ -1049,7 +1055,8 @@ func SubnetReserve() bool {
 	pr.SetSubnetMaxInactiveDuration(params.SubnetMaxInactiveTime)
 
 	// initial subnet
-	ms, err := NewMockSubnetWithReserves(params.Subnet, params.Rsvs)
+	reserveList := []*Reserve{params.GovRsv, params.NormRsv}
+	ms, err := NewMockSubnetWithReserves(params.Subnet, reserveList)
 	if err != nil {
 		log.Error(err)
 		return false
@@ -1066,5 +1073,3 @@ func SubnetReserve() bool {
 	}
 	return true
 }
-
-// todo dns解析

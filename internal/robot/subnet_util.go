@@ -45,7 +45,6 @@ const (
 type Reserve struct {
 	Host string
 	Rsv  []string
-	Mask []string
 }
 
 type ReserveList []*Reserve
@@ -62,19 +61,6 @@ func (r ReserveList) GetRsv(addr string) []string {
 		}
 		if rsv.Host == host {
 			return rsv.Rsv
-		}
-	}
-	return nil
-}
-
-func (r ReserveList) GetMask(addr string) []string {
-	for _, rsv := range r {
-		host, _, err := net.SplitHostPort(addr)
-		if err != nil {
-			continue
-		}
-		if rsv.Host == host {
-			return rsv.Mask
 		}
 	}
 	return nil
@@ -289,7 +275,7 @@ func (ms *MockSubnet) generateNode(host string, typ nodeType, acc *account.Accou
 
 func (ms *MockSubnet) CheckAll() error {
 	for _, wn := range ms.nodes {
-		log.Infof("===============================[check %s wn %s]=================================",
+		log.Infof("===============================[check %s node %s]=================================",
 			wn.typeName(), wn.host)
 
 		if err := wn.checkMemberInfo(); err != nil {
@@ -348,7 +334,7 @@ func (ms *MockSubnet) CheckReserve() error {
 			wn.typeName(), wn.host)
 
 		for _, member := range wn.getSubnetMemberInfo() {
-			log.Infof("local %s, subnet members %s", wn.host, member.ListenAddr)
+			log.Infof("local %s, subnet members %s, connected %t", wn.host, member.ListenAddr, member.Connected)
 		}
 
 		for _, nb := range wn.node.GetNeighbors() {
