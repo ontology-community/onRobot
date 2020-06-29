@@ -569,7 +569,7 @@ coredns的使用参见doc/coredns.md
 需要注意的是，程序会先判断其是否为共识节点。
 ```
 
-#### 19.subnetReserve
+#### 20.subnetReserve
 ```dtd
 条件: 
 配置(S, G, N) = (4, 4, 2)的网络拓扑结构，
