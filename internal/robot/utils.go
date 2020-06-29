@@ -58,16 +58,9 @@ func reset() {
 
 // GenerateNetServerWithProtocol get netserver with some protocol
 func GenerateNetServerWithProtocol(protocol p2p.Protocol) (ns *netserver.NetServer) {
-	var (
-		//rsv []string
-		err error
-	)
-	//nodeCfg := config.DefConfig.P2PNode
-	//if nodeCfg.ReservedPeersOnly && nodeCfg.ReservedCfg != nil {
-	//	rsv = nodeCfg.ReservedCfg.ReservedPeers
-	//}
-	//staticFilter := connect_controller.NewStaticReserveFilter(rsv)
-	//reserved := protocol.GetReservedAddrFilter(len(rsv) != 0)
+	var err error
+	//staticFilter := connect_controller.NewStaticReserveFilter(nil)
+	//reserved := protocol.GetReservedAddrFilter(false)
 	//reservedPeers := p2p.CombineAddrFilter(staticFilter, reserved)
 
 	if ns, err = netserver.NewNetServer(protocol, conf.DefConfig.Net, nil); err != nil {
